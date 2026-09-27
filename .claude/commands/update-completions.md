@@ -91,6 +91,7 @@ Some flags are accepted by the CLI but not listed as their own row in `claude --
 | `--permission-prompt-tool <tool>` | Listed in the `Advanced` section of `/en/cli-reference.md`; absent from `--help` | `claude --permission-prompt-tool 2>&1` → "argument missing" |
 | `--teammate-mode <mode>` | Listed in the `Advanced` section of `/en/cli-reference.md`; absent from `--help` | `claude --teammate-mode 2>&1` → "argument missing"; invalid value lists choices `auto, tmux, iterm2, in-process` |
 | `--teleport [session-id]` | Documented on `/en/claude-code-on-the-web.md` (`--teleport` pulls a cloud session into the terminal); absent from `--help` | `claude --teleport 2>&1` runs without an "unknown option" error |
+| `remote-control --sandbox` / `--no-sandbox` | Dropped from `claude remote-control --help` in v2.1.283 but still accepted | `claude remote-control --sandbox --help 2>&1` prints the usage block; an unknown flag prints "Unknown argument" |
 
 Note: `--sdk-url <url>` is also accepted but was deliberately excluded from completions — probing it returns "This flag is reserved for Remote Control worker processes connecting to Anthropic's backend," i.e. it's internal, not user-facing.
 
@@ -114,6 +115,23 @@ Key patterns to follow:
 - Repeatable flags: `'*--flag[Description]:value:_files'`
 - File completion: `:file:_files`
 - Directory completion: `:directory:_files -/`
+
+### Preserve the value completers
+
+The `_claude_*` functions at the top of `_claude` are hand-written, not generated from `--help`. Keep them unchanged, and keep every spec that calls one. When a new flag or positional takes the same kind of value, point it at the matching completer too:
+
+| Completer | Values | Used by |
+|-----------|--------|---------|
+| `_claude_session_ids` | Sessions for the current directory | `--resume` |
+| `_claude_background_session_ids` | Background sessions | `attach`, `logs`, `stop`, `kill`, `respawn`, `rm` |
+| `_claude_models` | Model aliases | `--model`, `--advisor`, `--fallback-model` (via `_sequence`), `agents --model`, `plugin eval --model`/`--judge-model`, `auto-mode critique --model` |
+| `_claude_agents` | Subagent names | `--agent`, `agents --agent` |
+| `_claude_mcp_servers` | Configured MCP servers | `mcp get`, `mcp remove`, `mcp login`, `mcp logout` |
+| `_claude_installed_plugins` | Installed `plugin@marketplace` ids | `plugin details`, `enable`, `disable`, `uninstall`, `update`, `eval` target |
+| `_claude_available_plugins` | Plugins offered by known marketplaces | `plugin install` |
+| `_claude_marketplaces` | Configured marketplaces | `plugin marketplace remove`, `update` |
+
+Comma-separated values use `_sequence`, e.g. `--setting-sources` is `:sources:_sequence compadd - user project local`.
 
 ## Step 4: Update Version File
 
@@ -273,7 +291,7 @@ These patterns cause duplicate completions and must NOT be used:
 
 ### Required Structure
 The completion script must use this flat structure:
-- `case $words[2] in` for subcommand detection (not `$words[1]` which is always "claude")
+- Top-level commands live in one array, `claude_commands` (`'name:description'` entries). `known_commands` is derived from it, and the final `_arguments` offers it with `'1:command:{_describe -t commands command claude_commands}'`. Don't name the array `commands`: that would shadow zsh's special `$commands` hash.
+- Subcommand detection scans `$words` for the first known command, so flags before it (from an alias) still work. It then trims `$words` to start at the subcommand. Every nested level (`mcp get`, `plugin marketplace add`, ...) trims again with `words=("${(@)words[2,-1]}"); (( CURRENT-- ))` before calling `_arguments`. After trimming, positional specs start at the first real argument: `':name:...'`. Don't add `':cmd:'` placeholder specs.
 - Early `return` after each case block to prevent fallthrough
 - Simple `_arguments -s` (not `-C`) for main flags
-- Simple command list: `'1:command:(cmd1 cmd2 cmd3)'`

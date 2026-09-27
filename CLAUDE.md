@@ -34,14 +34,16 @@ To test changes manually:
 
 Automated tests live under `scripts/tests/` and are driven by
 `scripts/verify-completions.sh`. Each `test-*.sh` covers one feature
-(syntax, global flags, mcp subcommand, `_claude_session_ids`). The runner
+(syntax, global flags, mcp subcommand, `_claude_session_ids`, the dynamic value completers). The runner
 also accepts a single test name: `./scripts/verify-completions.sh
 test-session-ids`. Requires `zsh`, `expect`, and `jq`.
 
 ## Known Patterns
 
-- Avoid nested helper functions in `_claude`—they caused duplicate completions (see commit ff451fe)
+- Avoid nested helper functions in `_claude`—they caused duplicate completions (see commit ff451fe). The exception is leaf value completers (`_claude_session_ids`, `_claude_models`, `_claude_mcp_servers`, ...). They only call `compadd`/`_describe` and are used as `_arguments` actions, never for subcommand dispatch.
 - Use flat structure with explicit `return` statements after each case block
+- `$words` is trimmed to start at the subcommand (and again at each nested level), so positional specs count from the first real argument. Don't use `':cmd:'` placeholders.
+- Value completers read Claude's own files (`~/.claude.json`, `~/.claude/plugins/*.json`, `~/.claude/agents/`), honor `CLAUDE_CONFIG_DIR`, and never call the `claude` binary or the network
 - Plugin copies `_claude` to cache directory instead of adding to fpath—prevents duplicates when plugin dir is symlinked
 
 ## Git Notes

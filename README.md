@@ -20,14 +20,18 @@ Minimal and always up-to-date zsh completions for [Claude Code CLI](https://gith
 - Command completion for all subcommands (`mcp`, `plugin`, `install`, `update`, etc.)
 - Option/flag completion with descriptions
 - Value completion for:
-  - Model names (`sonnet`, `opus`, `haiku`, full model IDs)
-  - Output formats (`text`, `json`, `stream-json`)
-  - Permission modes (`default`, `acceptEdits`, `bypassPermissions`, etc.)
-  - Tool names (`Bash`, `Read`, `Write`, `Edit`, etc.)
+  - Model aliases (`fable`, `opus`, `sonnet`, `haiku`, `opusplan`, `opus[1m]`, ...), including comma lists for `--fallback-model`
+  - Your subagents for `--agent` (from `~/.claude/agents/` and `.claude/agents/`)
+  - Your MCP servers for `mcp get|remove|login|logout`
+  - Installed plugins for `plugin enable|disable|uninstall|update|details`, marketplace plugins for `plugin install`, and marketplaces for `plugin marketplace remove|update`
+  - Recent sessions for `--resume`, and background sessions for `attach`, `logs`, `stop`, `rm`
+  - Output formats, permission modes, effort levels, and setting sources
 - Context-aware: different completions based on current subcommand
 - File/directory completion where appropriate
 
 ## Installation
+
+**Requirements:** zsh 5.x. Completions that read your Claude config (sessions, MCP servers, plugins, marketplaces) also need [`jq`](https://jqlang.org/). Without it they offer nothing, and everything else still works. Agent and model completion don't need `jq`.
 
 ### Oh My Zsh
 
@@ -70,7 +74,10 @@ Type `claude` followed by `Tab` to see available completions:
 ```bash
 claude <TAB>              # Show commands and options
 claude mcp <TAB>          # Show MCP subcommands
-claude --model <TAB>      # Show model names
+claude --model <TAB>      # Show model aliases
+claude --agent <TAB>      # Show your subagents
+claude mcp get <TAB>      # Show your MCP servers
+claude plugin install <TAB>   # Show plugins from your marketplaces
 claude --output-format <TAB>  # Show output formats
 claude --resume <TAB>     # Show recent sessions (newest first)
 ```
@@ -89,6 +96,10 @@ export CLAUDE_COMPLETION_SESSION_LIMIT=0    # no cap — show every session
 ```
 
 `0` (or any non-positive value) disables the cap entirely.
+
+### Custom config directory
+
+If you set `CLAUDE_CONFIG_DIR`, the completions read sessions, agents, plugins, marketplaces and `.claude.json` from there instead of `~/.claude`, the same way Claude Code does.
 
 ## Developer Guide
 

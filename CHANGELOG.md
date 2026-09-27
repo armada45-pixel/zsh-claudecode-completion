@@ -2,6 +2,29 @@
 
 All notable changes to the zsh-claudecode-completion plugin are documented here.
 
+## [2.1.283] - 2026-09-27
+
+### Added
+- New `--client-data-url <url>` flag: URL for a signed configuration document
+- New `remote-control` flags: `--chrome` / `--no-chrome` (Claude in Chrome for spawned sessions) and `-d` / `--debug[=<filter>]`
+- Top-level commands now complete with their descriptions (`claude <TAB>`)
+- Model alias completion (`default`, `best`, `fable`, `opus`, `sonnet`, `haiku`, `opusplan`, and the `[1m]` variants) for `--model`, `--advisor`, `--fallback-model` (comma-separated), `agents --model`, `plugin eval --model`/`--judge-model` and `auto-mode critique --model`
+- Subagent names for `--agent` and `agents --agent`, read from `~/.claude/agents/` and `.claude/agents/`
+- MCP server names (user, local and project scope) for `mcp get`, `remove`, `login` and `logout`
+- Installed plugins for `plugin details`, `enable`, `disable`, `uninstall`, `update` and the `plugin eval` target, plus marketplace plugins for `plugin install`
+- Marketplace names for `plugin marketplace remove` and `update`
+- Comma-separated completion for `--setting-sources` (top level and `agents`)
+
+### Changed
+- `remote-control --permission-mode` now offers `default` instead of `manual`, matching its help
+- Updated descriptions for `agents`, `auto-mode`, `respawn`, `rm`, `stop`, `plugin init`/`new`, `--agents` (it also takes a file path with `--print`, so it now completes files), `--bg`, `--fallback-model` (no longer print-only), `agents --cwd`, and the `remote-control` `--continue`, `--session-id`, `--create-session-in-dir`, `--debug-file` and `--verbose` flags
+- Session completion for `--resume` now honors `CLAUDE_CONFIG_DIR`
+
+### Fixed
+- Positional arguments in nested subcommands never completed, because `_arguments` counted positions from `claude` rather than from the subcommand. `claude plugin validate <path>` offered nothing, for example, and `mcp add` reached files only through its catch-all spec. `$words` is now trimmed at each subcommand level, which also keeps positions right when a flag comes before the subcommand (e.g. `alias claude='claude --verbose'`)
+- `plugin eval` offered its flags only right after `eval`. They now complete anywhere before or after the target
+- The top-level command array was named `commands`, which shadowed zsh's special `$commands` hash for every completer called from `_claude`. It is renamed to `claude_commands`
+
 ## [2.1.281] - 2026-09-24
 
 No new commands, subcommands, or flags detected. CLI help text picked up more
