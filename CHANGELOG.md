@@ -2,6 +2,19 @@
 
 All notable changes to the zsh-claudecode-completion plugin are documented here.
 
+## [2.1.289] - 2026-10-05
+
+### Added
+- New top-level `purge [path]` command with flags `--all`, `--dry-run`, `-i`/`--interactive`, `-y`/`--yes`. Claude v2.1.288 renamed `claude project purge` to `claude purge`
+- New `plugin test [dir]` subcommand: run a mod's tests
+- Global flags the CLI accepts but does not list in `--help`: `--append-subagent-system-prompt <prompt>`, `--append-subagent-system-prompt-file <file>`, `--exec <command>`, `--maintenance`, `--ref <ref>`
+
+### Changed
+- `project` and `project purge` are still completed, since the old name still works, but are now described as deprecated in favor of `purge`
+
+### Fixed
+- `claude project purge --<TAB>` printed `invalid option definition` and offered nothing, because the `[path]` in the `--all` description was not escaped
+
 ## [2.1.286] - 2026-10-01
 
 No new commands, subcommands, or flags detected.
