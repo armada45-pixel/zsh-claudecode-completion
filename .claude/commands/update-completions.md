@@ -115,6 +115,7 @@ Key patterns to follow:
 - Repeatable flags: `'*--flag[Description]:value:_files'`
 - File completion: `:file:_files`
 - Directory completion: `:directory:_files -/`
+- Model options: `:model:_claude_models` for `--model`, `agents --model`, `plugin eval --model` / `--judge-model` and `auto-mode critique --model`; `:model:_sequence _claude_models` for the comma-separated `--fallback-model`; `:model:(fable opus sonnet)` for `--advisor`. A new option that takes a model gets the same action. The alias list inside `_claude_models` mirrors https://code.claude.com/docs/en/model-config.md — re-check it against that page on every update. The helper must keep passing `"$@"` to `_describe`; `scripts/tests/test-model-aliases.sh` covers this
 
 ## Step 4: Update Version File
 
@@ -266,7 +267,7 @@ This prevents duplicates when the plugin directory is symlinked (e.g., from oh-m
 
 ### Known Anti-Patterns (AVOID)
 These patterns cause duplicate completions and must NOT be used:
-- Nested helper functions (e.g., `_claude_mcp()` called from main completion)
+- Nested helper functions for subcommand dispatch (e.g., `_claude_mcp()` called from main completion). Leaf value completers are fine and must be kept: `_claude_session_ids`, `_claude_background_session_ids` and `_claude_models` only add matches and are used as `_arguments` actions
 - `_arguments -C` with complex state machines (use `-s` instead)
 - Missing `return` statement after case blocks
 - `_claude() { }` wrapper function with `_claude "$@"` at end
