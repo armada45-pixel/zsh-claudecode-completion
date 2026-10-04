@@ -310,6 +310,30 @@ _claude_background_session_ids() {
   _wanted bg-session-ids expl 'background session' compadd -o nosort -d labels -a ids
 }
 
+# Offer the model aliases Claude accepts in place of a full model name.
+# The list mirrors the alias table at
+# https://code.claude.com/docs/en/model-config#model-aliases. Full model
+# ids are left out on purpose: they change with every model release.
+#
+# "$@" carries the options the caller adds (`_arguments`' description
+# options, or `_sequence`'s separator and already-chosen values for the
+# comma-separated --fallback-model), so it has to reach `_describe`.
+_claude_models() {
+  local -a models
+  models=(
+    'default:Clear any model override and use the default for your account'
+    'best:Fable where it is available to you, otherwise the same model as opus'
+    'fable:Fable, for your hardest and longest-running tasks'
+    'sonnet:Latest Sonnet, for daily coding tasks'
+    'opus:Latest Opus, for complex reasoning tasks'
+    'haiku:Fast and efficient Haiku, for simple tasks'
+    'sonnet[1m]:Sonnet with a 1 million token context window'
+    'opus[1m]:Opus with a 1 million token context window'
+    'opusplan:opus during plan mode, then sonnet for execution'
+  )
+  _describe -t models 'model' models "$@"
+}
+
 # Offer a freshly-generated UUID for --session-id, which expects a NEW,
 # user-assigned session identifier (not an existing session to resume).
 local curcontext="$curcontext" state line
@@ -442,7 +466,7 @@ case $subcmd in
       '(-h --help)'{-h,--help}'[Display help for command]' \
       '--json[Print active sessions (interactive and background) as a JSON array and exit (for scripting; does not require a TTY)]' \
       '*--mcp-config[MCP server configuration to apply to dispatched sessions (repeatable)]:config:_files' \
-      '--model[Default model for sessions dispatched from agent view]:model:' \
+      '--model[Default model for sessions dispatched from agent view]:model:_claude_models' \
       '--permission-mode[Default permission mode for sessions dispatched from agent view]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
       '*--plugin-dir[Load plugins from specified directory for the agent view and dispatched sessions (repeatable)]:path:_files -/' \
       '--restricted[Start dispatched sessions in restricted mode]' \
@@ -671,11 +695,11 @@ case $subcmd in
               '--eval-dir[Directory name (below the plugin) that holds the eval cases; results go to <plugin>/<dir>/results/ (default: the manifest'\''s experimental.evals value, else evals/)]:dir:_files -/' \
               '(-h --help)'{-h,--help}'[Display help]' \
               '--json[Print the full run result (prompts, graders, per-run scores) as JSON to stdout, or write it to a .json file]::path:_files' \
-              '--judge-model[Override LLM-grader model (default: haiku)]:model:' \
+              '--judge-model[Override LLM-grader model (default: haiku)]:model:_claude_models' \
               '--keep-temp[Preserve scaffold dirs for debugging]' \
               '--max-cost-usd[Optional hard cost ceiling; abort and report partial results if hit (exit 2). Checked before each run launches, so overrun is bounded to runs in flight; paid graders are skipped on breach while free graders still score]:usd:' \
               '--mocks[Mock stand-ins for MCP servers, from <eval dir>/mocks/ (default: record). record: a server with no mock isn'\''t started (see --allow-real-servers); off: every real server starts, gated by --allow-tools]:mode:(record off)' \
-              '--model[Override model for all cases]:model:' \
+              '--model[Override model for all cases]:model:_claude_models' \
               '--no-publish[Keep the HTML report local only; skip publishing it to claude.ai]' \
               '--no-scaffold[Explicitly skip scaffold_script]' \
               '--output-dir[Directory for aggregate-result.json (default: ./<eval dir>/results/<timestamp>/)]:dir:_files -/' \
@@ -903,7 +927,7 @@ case $subcmd in
         critique)
           _arguments \
             '(-h --help)'{-h,--help}'[Display help]' \
-            '--model[Override which model is used]:model:'
+            '--model[Override which model is used]:model:_claude_models'
           ;;
         reset)
           _arguments \
@@ -986,7 +1010,7 @@ fi # end: if [[ -n "$subcmd" ]]
 # Only show global flags and commands if no subcommand matched
 _arguments -s \
   '*--add-dir[Additional directories to allow tool access to]:directory:_files -/' \
-  '--advisor[Enable a server-side advisor tool using the specified model]:model:' \
+  '--advisor[Enable a server-side advisor tool using the specified model]:model:(fable opus sonnet)' \
   '--agent[Agent for the current session. Overrides the agent setting]:agent:' \
   '--agents[JSON object defining custom agents]:json:' \
   '--allow-dangerously-skip-permissions[Enable bypassing all permission checks as an option, without it being enabled by default. Recommended only for sandboxes with no internet access]' \
@@ -1019,7 +1043,7 @@ _arguments -s \
   '--environment[Create a new cloud session that runs on the given self-hosted environment (ccpool_...)]:environment_id:' \
   '--exclude-dynamic-system-prompt-sections[Move per-machine sections (cwd, env info, memory paths, git status) from the system prompt into the first user message. Improves cross-user prompt-cache reuse. Only applies with the default system prompt (ignored with --system-prompt)]' \
   '--exec[Run a shell command as a background job instead of a Claude session (requires --bg)]:command:' \
-  '--fallback-model[Enable automatic fallback to specified model(s) when default model is overloaded or not available. Accepts a comma-separated list to try each in order. Re-tries the primary at the start of each user turn (only works with --print)]:model:' \
+  '--fallback-model[Enable automatic fallback to specified model(s) when default model is overloaded or not available. Accepts a comma-separated list to try each in order. Re-tries the primary at the start of each user turn (only works with --print)]:model:_sequence _claude_models' \
   '*--file[File resources to download at startup. Format: file_id:relative_path (e.g., --file file_abc:doc.txt file_def:img.png)]:file:' \
   '--fork-session[When resuming, create a new session ID instead of reusing the original (use with --resume or --continue)]' \
   '--forward-subagent-text[Forward subagent text and thinking blocks as assistant/user messages with parent_tool_use_id set (only works with --print and --output-format=stream-json)]' \
@@ -1036,7 +1060,7 @@ _arguments -s \
   '--max-budget-usd[Maximum dollar amount to spend on API calls (only works with --print)]:amount:' \
   '--max-turns[Limit the number of agentic turns (only works with --print)]:turns:' \
   '*--mcp-config[Load MCP servers from JSON files or strings (space-separated)]:config:_files' \
-  '--model[Model for the current session. Provide an alias for the latest model (e.g. '\''fable'\'', '\''opus'\'', or '\''sonnet'\'') or a model'\''s full name (e.g. '\''claude-fable-5'\'')]:model:' \
+  '--model[Model for the current session. Provide an alias for the latest model (e.g. '\''fable'\'', '\''opus'\'', or '\''sonnet'\'') or a model'\''s full name (e.g. '\''claude-fable-5'\'')]:model:_claude_models' \
   '(-n --name)'{-n,--name}'[Set a display name for this session (shown in the prompt box, /resume picker, and terminal title)]:name:' \
   '--no-chrome[Disable Claude in Chrome integration]' \
   '--no-session-persistence[Disable session persistence - sessions will not be saved to disk and cannot be resumed (only works with --print)]' \
