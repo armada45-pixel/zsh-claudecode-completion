@@ -73,6 +73,7 @@ claude mcp <TAB>          # Show MCP subcommands
 claude --model <TAB>      # Show model names
 claude --output-format <TAB>  # Show output formats
 claude --resume <TAB>     # Show recent sessions (newest first)
+claude --agent <TAB>      # Show your user and project subagents
 ```
 
 ## Configuration
