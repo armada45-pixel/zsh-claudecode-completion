@@ -121,6 +121,7 @@ Key patterns to follow:
 - File completion: `:file:_files`
 - Directory completion: `:directory:_files -/`
 - Comma-separated value lists: `:sources:_values -s , source user project local`. `_values -s ,` leaves out values already on the line and joins with a comma. `--setting-sources` uses this (top level and `agents`); keep it when regenerating, and cover it with `scripts/tests/test-setting-sources.sh`
+- MCP server names: `:name:_claude_mcp_servers` for `mcp get`, `mcp remove`, `mcp login` and `mcp logout` (not `mcp add` / `add-json`, which take a new name). The helper reads `mcpServers` from `${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json` (user scope, and local scope under `projects.<path>`) and from `.mcp.json` (project scope) with `jq`; it never runs `claude`. Keep it and `scripts/tests/test-mcp-server-names.sh` when regenerating
 - Agent options: `:agent:_claude_agents` for `--agent` and `agents --agent`. The helper reads the frontmatter of `.claude/agents/**/*.md` (project, walking up to the repository root) and `$CLAUDE_CONFIG_DIR/agents/**/*.md` (user); it never runs `claude`. Keep it and `scripts/tests/test-agent-names.sh` when regenerating
 - Model options: `:model:_claude_models` for `--model`, `agents --model`, `plugin eval --model` / `--judge-model` and `auto-mode critique --model`; `:model:_sequence _claude_models` for the comma-separated `--fallback-model`; `:model:(fable opus sonnet)` for `--advisor`. A new option that takes a model gets the same action. The alias list inside `_claude_models` mirrors https://code.claude.com/docs/en/model-config.md — re-check it against that page on every update. The helper must keep passing `"$@"` to `_describe`; `scripts/tests/test-model-aliases.sh` covers this
 
@@ -274,7 +275,7 @@ This prevents duplicates when the plugin directory is symlinked (e.g., from oh-m
 
 ### Known Anti-Patterns (AVOID)
 These patterns cause duplicate completions and must NOT be used:
-- Nested helper functions for subcommand dispatch (e.g., `_claude_mcp()` called from main completion). Leaf value completers are fine and must be kept: `_claude_session_ids`, `_claude_background_session_ids`, `_claude_models` and `_claude_agents` only add matches (`_claude_project_dirs` is a shared lookup they call) and are used as `_arguments` actions
+- Nested helper functions for subcommand dispatch (e.g., `_claude_mcp()` called from main completion). Leaf value completers are fine and must be kept: `_claude_session_ids`, `_claude_background_session_ids`, `_claude_models`, `_claude_agents` and `_claude_mcp_servers` only add matches (`_claude_project_dirs` is a shared lookup they call) and are used as `_arguments` actions
 - `_arguments -C` with complex state machines (use `-s` instead)
 - Missing `return` statement after case blocks
 - `_claude() { }` wrapper function with `_claude "$@"` at end
