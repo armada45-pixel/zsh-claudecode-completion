@@ -120,6 +120,16 @@ assert_no_completion_errors() {
         printf '%s\n' "$output" >&2
         fail "_arguments parsing error detected"
     fi
+    # Anything else zsh reports while completing comes out as
+    # `<function>:<line>: <message>`, e.g. `_alternative:7: bad option: -J`
+    # or `_claude:612: command not found: jq`. The two expect patterns above
+    # only know about _arguments, so catch the general form here.
+    local zsh_error
+    zsh_error=$(grep -Eo '(^|[^[:alnum:]_])_[[:alnum:]_]+:[0-9]+: .*' <<< "$output" | head -n 1)
+    if [[ -n "$zsh_error" ]]; then
+        printf '%s\n' "$output" >&2
+        fail "zsh error during completion: $zsh_error"
+    fi
     if ! grep -q "EXPECT_DONE" <<< "$output"; then
         printf '%s\n' "$output" >&2
         fail "expect harness did not finish (timeout or zsh crash)"
