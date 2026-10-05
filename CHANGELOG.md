@@ -2,6 +2,13 @@
 
 All notable changes to the zsh-claudecode-completion plugin are documented here.
 
+## [Unreleased]
+
+### Added
+- Hidden `self-hosted-runner` command (in the CLI since v2.1.224, absent from `claude --help`): Start a runner process that hosts Claude Code cloud sessions on your infrastructure
+  - Subcommands `setup`, `doctor`, `orchestrator`, offered only as the first word, where the CLI recognizes them
+  - Runner flags from `claude self-hosted-runner --help`, with values for `--log-level` (`info`, `debug`), `--host-config-snapshot` (`disk`, `memory`), `--confine-repo-settings` (`warn`, `enforce`, `off`) and the optional `[bool]` of `--trust-workspace` / `--remove-session-state`
+  - `orchestrator` has its own flag set (`--hook-concurrency`, `--hook-timeout`, `--expected-spawn-seconds`, `--min-idle`, `--scm-connector-*`, `--debug-dir`)
 ## [2.1.294] - 2026-10-08
 
 ### Added

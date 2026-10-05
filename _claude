@@ -720,6 +720,7 @@ commands=(
   'purge:Delete all Claude Code state for a project (transcripts, tasks, file history, config entry)'
   'respawn:Restart a background session (or all of them) so it picks up the current Claude binary'
   'rm:Delete a background session and its worktree (works on already-exited sessions)'
+  'self-hosted-runner:Start a runner process that hosts Claude Code cloud sessions on your infrastructure'
   'setup-token:Set up a long-lived authentication token (requires Claude subscription)'
   'remote-control:Connect your local environment to claude.ai/code'
   'stop:Stop a background session'
@@ -791,7 +792,7 @@ marketplace_commands=(
 # subcommand yet, and words after it must not change what is offered here.
 local subcmd_pos=0
 local subcmd="" subcmd2="" subcmd3=""
-local -a known_commands=(agents attach auth auto-mode daemon doctor gateway import install kill logs mcp plugin plugins project purge remote-control respawn rm setup-token stop ultrareview update upgrade)
+local -a known_commands=(agents attach auth auto-mode daemon doctor gateway import install kill logs mcp plugin plugins project purge remote-control respawn rm self-hosted-runner setup-token stop ultrareview update upgrade)
 local i
 for (( i=2; i < CURRENT; i++ )); do
   # Skip flags and their values
@@ -1270,6 +1271,87 @@ case $subcmd in
     fi
     return
     ;;
+  self-hosted-runner)
+    # setup, doctor and orchestrator are only recognized as the first word;
+    # with anything else there (or nothing), the options belong to the runner.
+    if (( CURRENT > 2 )) && [[ "$words[2]" == (setup|doctor|orchestrator) ]]; then
+      subcmd2=$words[2]
+      shift words; (( CURRENT-- ))
+      case $subcmd2 in
+        orchestrator)
+          _arguments \
+            '--api-url[API base URL (default: https://api.anthropic.com)]:url:' \
+            '--debug-dir[DEV ONLY — writes each work-order JWT + decoded JSON + hook stderr to <dir>/<jti>.{jwt,json,stderr}]:path:_files -/' \
+            '--environment-secret-file[Path to environment secret file (or set SELF_HOSTED_RUNNER_ENVIRONMENT_SECRET)]:path:_files' \
+            '--expected-spawn-seconds[p99 boot time for runners this orchestrator spawns (default: 120)]:n:' \
+            '--health-port[Port for /healthz HTTP listener (default: 8080). 0 disables]:port:' \
+            '(-h --help)'{-h,--help}'[Show this help message]' \
+            '--hook-concurrency[Max spawn-runner hooks running in parallel (default: 4)]:n:' \
+            '--hook-timeout[SIGTERM the hook after <sec> seconds (default: 60)]:sec:' \
+            '--hooks-dir[Directory containing the spawn-runner hook (REQUIRED)]:path:_files -/' \
+            '--log-level[Log level: info or debug (default: info)]:level:(info debug)' \
+            '--min-idle[Keep at least <n> idle slots free (free capacity across runners, not runner count; default: 0, disabled)]:n:' \
+            '--scm-connector-ca-file[Extra CA bundle (PEM) for TLS to the GHES host]:path:_files' \
+            '--scm-connector-host[GHES hostname to forward to (port defaults to 443). Setting this enables the connector]:host:' \
+            '--scm-connector-host-rewrite[e2e only — redirect the TCP connect while keeping Host/SNI as --scm-connector-host]:from=to_host\:to_port:' \
+            '--scm-connector-id[ghe_configurations.id for this org (REQUIRED with --scm-connector-host)]:n:' \
+            '--scm-connector-provider[Provider slug (default: ghe)]:provider:'
+          ;;
+        setup|doctor)
+          # Extra args are passed to the underlying Claude Code session.
+          _arguments \
+            '--help[Show this help message]' \
+            '*:args:'
+          ;;
+      esac
+    elif (( CURRENT == 2 )) && [[ "$words[2]" != -* ]]; then
+      local -a self_hosted_runner_commands
+      self_hosted_runner_commands=(
+        'setup:Interactive wizard: walks you from zero to a working self-hosted runner environment'
+        'doctor:Interactive wizard: diagnoses a self-hosted runner deployment'
+        'orchestrator:Poll the spawn-hints queue and run the spawn-runner hook once per hint'
+      )
+      _describe 'self-hosted-runner command' self_hosted_runner_commands
+    else
+      _arguments \
+        '--api-url[API base URL (default: https://api.anthropic.com)]:url:' \
+        '--base-dir[Base directory for repo checkouts (default: /workspace; required on Windows, which has no default)]:path:_files -/' \
+        '--capacity[Max concurrent sessions (default: 1)]:n:' \
+        '--client-label[Observability label sent at registration (default: hostname)]:label:' \
+        '--configure-git[Set global git identity to Claude <noreply@anthropic.com> and enable commit signing via Anthropic'\''s signing service, matching 1P sessions]' \
+        '--confine-repo-settings[Repo-committed-settings confine guard mode: warn (default), enforce or off]:mode:(warn enforce off)' \
+        '--debug-token-dir[DEBUG ONLY — writes live tokens to disk. Do not use in production]:path:_files -/' \
+        '--defer-shutdown-max-min[On the first SIGTERM/SIGINT, stop taking new work and finish shutting down M minutes later instead of draining]:m:' \
+        '--drain-grace-sec[Keep the runner warm and re-poll the locked account'\''s queue for that many seconds before exiting (default: 0)]:n:' \
+        '--drain-marker-file[Marker file a host writes to announce a graceful drain before sending SIGTERM (telemetry only)]:path:_files' \
+        '--drain-wait-sec[On SIGTERM/SIGINT, wait up to N seconds for each session'\''s in-flight turn and running background tasks to finish]:n:' \
+        '--environment-secret-file[Path to environment secret file (or set SELF_HOSTED_RUNNER_ENVIRONMENT_SECRET)]:path:_files' \
+        '--exec-path[Binary to spawn for child sessions. Default: this process'\''s own binary]:path:_files' \
+        '--exit-if-unused-min[Exit the runner if never assigned work for N min (autoscaler scale-down)]:n:' \
+        '*--git-host-rewrite[Rewrite https://<f>/... source URLs to https://<t>/... (repeatable)]:from=to:' \
+        '*--git-ssh-rewrite[Rewrite https://<host>/... source URLs to git@<host>\:... (repeatable)]:host:' \
+        '--health-port[Port for /healthz HTTP listener (default: 8080). 0 disables]:port:' \
+        '(-h --help)'{-h,--help}'[Show this help message]' \
+        '--hooks-dir[Directory of lifecycle hook scripts (checkout, command, post-session)]:path:_files -/' \
+        '--host-config-snapshot[Where the startup snapshot of the host config directory is held (default: disk)]:mode:(disk memory)' \
+        '--kill-session-after-min[Cap a session child'\''s wall-clock life at N min (runaway backstop)]:n:' \
+        '--lock-to-account[Lock runner to a single account at registration (webhook-driven on-demand spawn)]:id:' \
+        '--log-file[Tee runner logs to a file in append mode. Stdout is unchanged]:path:_files' \
+        '--log-level[Log level: info or debug (default: info)]:level:(info debug)' \
+        '--post-session-hook-timeout-sec[SIGTERM budget for the post-session lifecycle hook, on every session end including runner shutdown. Default: 60]:n:' \
+        '--proxy-authorization-command[Shell command whose stdout is the Proxy-Authorization header value, run afresh for each new connection to the egress proxy]:shell command:' \
+        '--proxy-authorization-file[Same as --proxy-authorization-command, but the header value is read from a file]:path:_files' \
+        '--push-outcome-on-release[On a runner-initiated non-completed session end, push every tracked outcome branch to origin before deleting it]' \
+        '--release-idle-session-min[Release a session slot after N min of no user input]:n:' \
+        '--remove-session-state[Remove a session'\''s per-session state under <base-dir>/_sessions/ when it ends on this runner. Default: false]::bool:(true false)' \
+        '--retire-at[Retire the runner at the given wall-clock time (absolute Unix timestamp, in seconds)]:epoch-seconds:' \
+        '--session-stop-grace-sec[How long to wait for the Claude process to exit cleanly after a session ends, before force-killing it. Default: 5]:n:' \
+        '--startup-timeout-min[Release a session slot if the child has not completed initialization N min after spawn. Default: 15. 0 disables]:n:' \
+        '--trust-workspace[Seed persisted trust for each session'\''s repo paths so repo-level .claude/settings.json grants are honored by the child. Default: true]::bool:(true false)' \
+        '--use-anthropic-git-proxy[Opt this runner into Anthropic-managed git. WARNING: deletes and replaces the HOME-level git config of the account running the runner]'
+    fi
+    return
+    ;;
   auto-mode)
     if (( CURRENT == 2 )); then
       local -a auto_mode_commands
@@ -1454,5 +1536,5 @@ _arguments -s \
   '--verbose[Override verbose mode setting from config]' \
   '(-v --version)'{-v,--version}'[Output the version number]' \
   '(-w --worktree)'{-w,--worktree}'[Create a new git worktree for this session (optionally specify a name)]::name:' \
-  '1:command:(agents attach auth auto-mode daemon doctor gateway import install kill logs mcp plugin plugins project purge remote-control respawn rm setup-token stop ultrareview update upgrade)' \
+  '1:command:(agents attach auth auto-mode daemon doctor gateway import install kill logs mcp plugin plugins project purge remote-control respawn rm self-hosted-runner setup-token stop ultrareview update upgrade)' \
   '*:prompt:'
