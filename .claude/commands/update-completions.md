@@ -281,4 +281,4 @@ The completion script must use this flat structure:
 - `case $words[2] in` for subcommand detection (not `$words[1]` which is always "claude")
 - Early `return` after each case block to prevent fallthrough
 - Simple `_arguments -s` (not `-C`) for main flags
-- Simple command list: `'1:command:(cmd1 cmd2 cmd3)'`
+- Simple command list: `"1:command:($known_commands)"`, derived from the `claude_commands` array (do not write the names out again as a literal list)
