@@ -4,7 +4,9 @@
 # Verifies that the command is offered at the top level, its subcommand
 # list (`setup`, `doctor`, `orchestrator`), a sample of the runner's own
 # flags, that `orchestrator` gets its own flag set instead of the runner's,
-# and the enumerated values of `--log-level` and `--host-config-snapshot`.
+# that `setup` only gets `-h`/`--help`, and the enumerated values of
+# `--log-level`, `--host-config-snapshot`, `--confine-repo-settings` and
+# the optional bool of `--trust-workspace`.
 
 set -e
 TEST_NAME=test-self-hosted-runner
@@ -37,6 +39,9 @@ assert_no_zsh_errors "$output"
 for cmd in setup doctor orchestrator; do
     assert_contains "$cmd" "$output" "self-hosted-runner subcommand '$cmd'"
 done
+# Only the subcommands: neither the runner's flags nor the top-level list.
+assert_not_contains -- "--capacity" "$output" "self-hosted-runner subcommands"
+assert_not_contains "setup-token" "$output" "self-hosted-runner subcommands"
 
 log "case 3: 'claude self-hosted-runner --<TAB>' offers runner flags only"
 output=$(run_completion "$home" "$home" 'claude self-hosted-runner --\t')
@@ -78,5 +83,25 @@ output=$(run_completion "$home" "$home" 'claude self-hosted-runner --capacity 2 
 assert_no_zsh_errors "$output"
 assert_contains -- "--base-dir" "$output" "runner flags after another flag"
 assert_not_contains -- "--hook-concurrency" "$output" "runner flags after another flag"
+
+log "case 8: 'claude self-hosted-runner setup -<TAB>' offers -h/--help, not the runner's flags"
+output=$(run_completion "$home" "$home" 'claude self-hosted-runner setup -\t')
+assert_no_zsh_errors "$output"
+assert_contains -- "--help" "$output" "setup flags"
+assert_contains -- "-h " "$output" "setup flags"
+assert_not_contains -- "--capacity" "$output" "setup flags"
+
+log "case 9: '--confine-repo-settings <TAB>' lists warn, enforce and off"
+output=$(run_completion "$home" "$home" 'claude self-hosted-runner --confine-repo-settings \t')
+assert_no_zsh_errors "$output"
+for mode in warn enforce off; do
+    assert_contains "$mode" "$output" "--confine-repo-settings values"
+done
+
+log "case 10: '--trust-workspace <TAB>' lists the optional true/false"
+output=$(run_completion "$home" "$home" 'claude self-hosted-runner --trust-workspace \t')
+assert_no_zsh_errors "$output"
+assert_contains "true" "$output" "--trust-workspace values"
+assert_contains "false" "$output" "--trust-workspace values"
 
 pass "self-hosted-runner completion OK"
