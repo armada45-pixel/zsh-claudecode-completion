@@ -52,6 +52,7 @@ Some Claude CLI commands are **hidden** — they work but are not listed in `cla
 | `respawn` | `claude respawn --help` | Restart a background session (or all of them) |
 | `rm` | `claude rm --help` | Delete a background session and its worktree |
 | `project` | `claude project --help` | Deprecated parent of `project purge`, which v2.1.288 renamed to `claude purge`. The old name still runs and prints a notice |
+| `self-hosted-runner` | `claude self-hosted-runner --help` | Start a runner that hosts Claude Code cloud sessions on your infrastructure (`setup`, `doctor`, `orchestrator`; each has its own `--help`, and the output is not in the usual commander format) |
 
 For each hidden command:
 1. Run its `--help` to get flags and description
