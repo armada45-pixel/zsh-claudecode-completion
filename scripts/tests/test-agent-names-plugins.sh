@@ -8,11 +8,13 @@
 #     becomes part of that name
 #   - the name comes from the frontmatter, or from the file name without it
 #   - the manifest can rename the plugin and replace the `agents/` scan
-#   - plugins turned off in `enabledPlugins`, or off by default, are skipped
+#   - plugins turned off in `enabledPlugins`, or off by default, are skipped,
+#     and the project's settings override the user's
 #   - a project-scoped install is offered only inside its project
 #   - malformed entries, a missing installPath, a broken manifest and a
 #     broken settings file do not hide the other plugins or print errors
-#   - CLAUDE_CONFIG_DIR replaces ~/.claude
+#   - CLAUDE_CONFIG_DIR replaces ~/.claude, and CLAUDE_CODE_PLUGIN_CACHE_DIR
+#     replaces its plugins directory
 #   - the built-in agents are offered, and a user agent replaces one
 
 set -e
@@ -57,8 +59,12 @@ agent_file "$plug/alpha/agents/bare-file.md"
 agent_file "$plug/renamed/custom/deep/lister.md" listed-agent "Named by the manifest"
 agent_file "$plug/renamed/agents/ignored.md" ignored-agent "Default folder is replaced"
 mkdir -p "$plug/renamed/.claude-plugin"
-printf '{"name": "zeta-tools", "agents": ["./custom/deep/lister.md", "../escape.md", 7]}\n' \
+printf '{"name": "zeta-tools", "agents": ["./custom/deep/lister.md", "./../escape.md", "custom/bare.md", 7]}\n' \
     > "$plug/renamed/.claude-plugin/plugin.json"
+# Both files exist, so only the path rules keep them out: a path stays
+# inside the plugin and starts with `./`.
+agent_file "$plug/escape.md" escape-agent "Outside the plugin root"
+agent_file "$plug/renamed/custom/bare.md" prefixless-agent "Path without ./"
 
 agent_file "$plug/off/agents/hidden.md" hidden-agent "Plugin is disabled"
 
@@ -69,6 +75,10 @@ printf '{"name": "dflt", "defaultEnabled": false}\n' > "$plug/dflt/.claude-plugi
 agent_file "$plug/badmanifest/agents/survivor.md" survivor-agent "Manifest is not JSON"
 mkdir -p "$plug/badmanifest/.claude-plugin"
 printf '{ not json' > "$plug/badmanifest/.claude-plugin/plugin.json"
+
+# The project's settings turn one plugin back on and another one off.
+agent_file "$plug/relit/agents/back.md" back-agent "Enabled again by the project"
+agent_file "$plug/muted/agents/quiet.md" quiet-agent "Disabled by the project"
 
 agent_file "$plug/projonly/agents/local.md" local-agent "Project scoped install"
 
@@ -81,6 +91,8 @@ cat > "$home/.claude/plugins/installed_plugins.json" <<JSON
     "off@market": [{"scope": "user", "installPath": "$plug/off"}],
     "dflt@market": [{"scope": "user", "installPath": "$plug/dflt"}],
     "badmanifest@market": [{"scope": "user", "installPath": "$plug/badmanifest"}],
+    "relit@market": [{"scope": "user", "installPath": "$plug/relit"}],
+    "muted@market": [{"scope": "user", "installPath": "$plug/muted"}],
     "projonly@market": [{"scope": "project", "projectPath": "$proj", "installPath": "$plug/projonly"}],
     "gone@market": [{"scope": "user", "installPath": "$plug/does-not-exist"}],
     "nopath@market": [{"scope": "user"}],
@@ -89,8 +101,10 @@ cat > "$home/.claude/plugins/installed_plugins.json" <<JSON
   }
 }
 JSON
-printf '{"enabledPlugins": {"off@market": false, "alpha@market": true}}\n' \
+printf '{"enabledPlugins": {"off@market": false, "alpha@market": true, "relit@market": false}}\n' \
     > "$home/.claude/settings.json"
+printf '{"enabledPlugins": {"relit@market": true, "muted@market": false}}\n' \
+    > "$proj/.claude/settings.json"
 # A settings file that is not JSON must not take the plugins with it.
 printf 'not json at all' > "$proj/.claude/settings.local.json"
 
@@ -104,7 +118,7 @@ output=$(run_completion "$home" "$proj" 'claude --agent \t')
 assert_clean "$output"
 for name in alpha:top-agent alpha:review:audit alpha:bare-file \
             zeta-tools:listed-agent badmanifest:survivor-agent \
-            projonly:local-agent; do
+            projonly:local-agent relit:back-agent; do
     assert_contains "$name" "$output" "agent list"
 done
 assert_contains "Agent in a subfolder" "$output" "plugin agent description"
@@ -113,7 +127,7 @@ assert_contains "Agent from alpha plugin" "$output" "fallback description"
 assert_not_contains 'alpha\\' "$output" "agent list"
 
 log "case 2: what must not be offered"
-for bad in hidden-agent sleeper-agent ignored-agent renamed: escape \
+for bad in hidden-agent sleeper-agent ignored-agent renamed: escape prefixless quiet-agent \
            gone: nopath: wrongtype: numbers:; do
     assert_not_contains "$bad" "$output" "agent list"
 done
@@ -147,6 +161,9 @@ output=$(run_completion "$home" "$home/elsewhere" 'claude --agent \t')
 assert_clean "$output"
 assert_contains "alpha:top-agent" "$output" "agent list outside the project"
 assert_not_contains "projonly" "$output" "agent list outside the project"
+# The project's settings do not apply here, only the user's.
+assert_contains "muted:quiet-agent" "$output" "agent list outside the project"
+assert_not_contains "back-agent" "$output" "agent list outside the project"
 
 log "case 8: CLAUDE_CONFIG_DIR replaces ~/.claude"
 agent_file "$plug/other/agents/alt.md" alt-agent "From the alternate config dir"
@@ -170,5 +187,12 @@ output=$(run_completion "$home" "$home/elsewhere" 'claude --agent \t' \
 assert_clean "$output"
 assert_contains "still-here" "$output" "agent list with a broken plugin file"
 assert_contains "general-purpose" "$output" "agent list with a broken plugin file"
+
+log "case 10: CLAUDE_CODE_PLUGIN_CACHE_DIR replaces the plugins directory"
+output=$(run_completion "$home" "$home/elsewhere" 'claude --agent \t' \
+    "set env(CLAUDE_CODE_PLUGIN_CACHE_DIR) \"$home/altconfig/plugins\"")
+assert_clean "$output"
+assert_contains "other:alt-agent" "$output" "agent list with CLAUDE_CODE_PLUGIN_CACHE_DIR"
+assert_not_contains "alpha" "$output" "agent list with CLAUDE_CODE_PLUGIN_CACHE_DIR"
 
 pass "plugin and built-in agent completion OK"
