@@ -17,11 +17,16 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/common.sh"
 required_flags=(
     "--system-prompt-file"
     "--append-system-prompt-file"
+    "--append-subagent-system-prompt"
+    "--append-subagent-system-prompt-file"
+    "--exec"
+    "--maintenance"
+    "--ref"
 )
 
 for flag in "${required_flags[@]}"; do
     if ! grep -qF -- "'$flag[" "$COMPLETION_FILE"; then
-        fail "missing required hidden flag '$flag' in $COMPLETION_FILE — the CLI still accepts it even though it's not listed in 'claude --help' (referenced inside --bare's description as ${flag%-file}[-file])"
+        fail "missing required hidden flag '$flag' in $COMPLETION_FILE — the CLI still accepts it even though it's not listed in 'claude --help' (see the Hidden Flags table in .claude/commands/update-completions.md)"
     fi
     log "found $flag"
 done

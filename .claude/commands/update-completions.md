@@ -51,6 +51,7 @@ Some Claude CLI commands are **hidden** — they work but are not listed in `cla
 | `kill` | `claude kill --help` | Alias for `stop` |
 | `respawn` | `claude respawn --help` | Restart a background session (or all of them) |
 | `rm` | `claude rm --help` | Delete a background session and its worktree |
+| `project` | `claude project --help` | Deprecated parent of `project purge`, which v2.1.288 renamed to `claude purge`. The old name still runs and prints a notice |
 
 For each hidden command:
 1. Run its `--help` to get flags and description
@@ -87,6 +88,10 @@ Some flags are accepted by the CLI but not listed as their own row in `claude --
 | `--cloud` (alias `--remote`, deprecated) | Documented on `/en/claude-code-on-the-web.md`; absent from `--help` | `claude --cloud -p hi 2>&1` → "--cloud cannot be combined with --print" (same for `--remote`) |
 | `--dangerously-load-development-channels <servers...>` | Documented on `/en/channels.md` (testing a channel during research preview); absent from `--help` | `claude --dangerously-load-development-channels 2>&1` → "argument missing" |
 | `--init` / `--init-only` | Listed in the `Development & Debugging` section of `/en/cli-reference.md`; absent from `--help` | `claude --init-only 2>&1` exits 0 without an "unknown option" error |
+| `--maintenance` | Listed in `/en/cli-reference.md` next to `--init`; absent from `--help` | `grep -a -c -- '"--maintenance"' "$(readlink -f "$(command -v claude)")"` prints a non-zero count (the flag takes no value, so it cannot be probed without starting a session) |
+| `--append-subagent-system-prompt <prompt>` / `--append-subagent-system-prompt-file <file>` | Listed in `/en/cli-reference.md`; absent from `--help` | `claude --append-subagent-system-prompt 2>&1` → "argument missing" (same for the `-file` form) |
+| `--exec <command>` | Listed in `/en/cli-reference.md` (run a shell command as a background job); absent from `--help` | `claude --bg --exec 2>&1` → "--exec requires a command." Without `--bg` the CLI reports it as an unknown option |
+| `--ref <ref>` | Listed in `/en/cli-reference.md` (used with `--environment` or `--cloud`); absent from `--help` | `claude --ref 2>&1` → "argument missing" |
 | `--max-turns <turns>` | Listed in the `Print Mode` section of `/en/cli-reference.md`; absent from `--help` | `claude --max-turns 2>&1` → "argument missing" |
 | `--permission-prompt-tool <tool>` | Listed in the `Advanced` section of `/en/cli-reference.md`; absent from `--help` | `claude --permission-prompt-tool 2>&1` → "argument missing" |
 | `--teammate-mode <mode>` | Listed in the `Advanced` section of `/en/cli-reference.md`; absent from `--help` | `claude --teammate-mode 2>&1` → "argument missing"; invalid value lists choices `auto, tmux, iterm2, in-process` |
