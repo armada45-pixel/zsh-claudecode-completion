@@ -353,79 +353,224 @@ _claude_project_dirs() {
   done
 }
 
-# Offer the subagents defined in the user's and the project's
-# `.claude/agents/` directories, the way Claude finds them
+# Set $reply to the `name` and the `description` in the frontmatter of the
+# agent file $1, each empty when it is missing. Only the frontmatter is
+# read, in zsh itself, so no process is started per file.
+_claude_agent_frontmatter() {
+  setopt localoptions extendedglob
+  local line key val name="" desc=""
+  local -i n=0 block=0
+
+  while IFS= read -r line || [[ -n $line ]]; do
+    (( n++ ))
+    line=${line%$'\r'}
+    if (( n == 1 )); then
+      # A byte-order mark may precede the opening `---`.
+      line=${line#$'\xef\xbb\xbf'}
+      [[ ${line%%[[:space:]]#} == '---' ]] || break
+      continue
+    fi
+    [[ ${line%%[[:space:]]#} == '---' ]] && break
+    (( n > 200 )) && break
+    if (( block )); then
+      # First line of a `description: |` or `>` block.
+      block=0
+      if [[ $line == [[:space:]]##[^[:space:]]* ]]; then
+        desc=${${line##[[:space:]]#}%%[[:space:]]#}
+        continue
+      fi
+    fi
+    [[ $line == (name|description):* ]] || continue
+    key=${line%%:*}
+    val=${${line#*:}##[[:space:]]#}
+    if [[ $val == \"* ]]; then
+      val=${${val#\"}%%\"*}
+    elif [[ $val == \'* ]]; then
+      val=${${val#\'}%%\'*}
+    else
+      # Unquoted: drop a trailing ` # comment`, then trailing blanks.
+      [[ $val == \#* ]] && val=""
+      val=${${val%%[[:space:]]##\#*}%%[[:space:]]#}
+    fi
+    if [[ $key == name ]]; then
+      name=$val
+    elif [[ $val == [\|\>]([+-]|)([0-9]|) ]]; then
+      block=1
+    else
+      desc=$val
+    fi
+  done < $1 2>/dev/null
+
+  # Descriptions often carry escaped examples; keep the first line short.
+  desc=${desc%%\\n*}
+  (( ${#desc} > 80 )) && desc="${desc[1,77]}..."
+  reply=("$name" "$desc")
+}
+
+# Set $reply to the agents of the installed plugins, as `_describe` items.
+# The arguments are the project directories (`_claude_project_dirs`).
+#   - installed_plugins.json names each plugin's `installPath`. The cache
+#     directory also keeps older versions, so it is not searched. An
+#     install with project or local scope counts only inside its project.
+#   - a plugin is skipped when `enabledPlugins` turns it off in the user's
+#     settings.json or the working directory's .claude/settings.json or
+#     settings.local.json (the later file wins), or when nothing sets it
+#     and its manifest says `defaultEnabled: false`.
+#   - the agent is `<plugin>:<subfolders of agents/>:<name>`, the name
+#     being the frontmatter `name`, or the file name without it. `<plugin>`
+#     is the manifest's `name`, the part before `@` without a manifest.
+#   - `agents` in the manifest replaces the `agents/` scan with the listed
+#     `.md` files, which get no subfolder in their name.
+# See https://code.claude.com/docs/en/plugins/components#agents. Two jq
+# processes read every JSON file: one for installed_plugins.json and the
+# settings, one for the manifests. Each file is handed over as text and
+# parsed inside jq, so a broken one is skipped instead of ending the run.
+_claude_plugin_agents() {
+  setopt localoptions extendedglob
+  local config=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
+  local installed=${CLAUDE_CODE_PLUGIN_CACHE_DIR:-$config/plugins}/installed_plugins.json
+  local -a jqargs rows fields ids roots preset manifests files out
+  local -A seen
+  local f row root plugin name desc text
+  local -i i=0 listed
+
+  reply=()
+  [[ -f $installed && -r $installed ]] || return 1
+
+  jqargs=(--rawfile installed $installed)
+  for f in $config/settings.json $1/.claude/settings.json $1/.claude/settings.local.json; do
+    (( i++ ))
+    if [[ -f $f && -r $f ]]; then
+      jqargs+=(--rawfile settings$i $f)
+    else
+      jqargs+=(--arg settings$i '')
+    fi
+  done
+
+  # One row per usable plugin: id, install path, and whether a settings
+  # file sets `enabledPlugins` for it.
+  rows=("${(@f)$(command jq -n -r "${jqargs[@]}" '
+    def parse: first((try fromjson catch null), null);
+    (reduce ($settings1, $settings2, $settings3 | parse | objects | .enabledPlugins | objects) as $e
+      ({}; . + $e)) as $enabled
+    | $installed | parse | objects | .plugins | objects | to_entries[]
+    | .key as $id
+    | select($enabled[$id] != false)
+    | [.value | if type == "array" then .[] else . end | objects
+       | select(.installPath | type == "string")] as $installs
+    | ([$installs[] | select(.projectPath as $p | $p != null and any($ARGS.positional[]; . == $p))][0]
+       // [$installs[] | select(.scope != "project" and .scope != "local")][0])
+    | objects
+    | select($id + .installPath | test("[[:cntrl:]]") | not)
+    | [$id, .installPath, ($enabled | has($id) | tostring)] | join("\u001f")
+  ' --args "$@" 2>/dev/null)}")
+
+  for row in $rows; do
+    fields=("${(@ps:\x1f:)row}")
+    root=${fields[2]%/}
+    (( $#fields == 3 )) && [[ -d $root ]] || continue
+    text=""
+    f=$root/.claude-plugin/plugin.json
+    [[ -f $f && -r $f ]] && text=$(<$f) 2>/dev/null
+    ids+=("$fields[1]") roots+=("$root") preset+=("$fields[3]") manifests+=("$text")
+  done
+  (( $#ids )) || return 1
+
+  # One row per manifest, in order: name, defaultEnabled, whether it has
+  # an `agents` key, and the paths under that key.
+  rows=()
+  if [[ -n ${(j::)manifests} ]]; then
+    rows=("${(@f)$(command jq -n -r '
+      $ARGS.positional[] | first((try fromjson catch null), null) as $m
+      | if ($m | type) == "object" then
+          [ ($m.name | if type == "string" then . else "" end),
+            ($m.defaultEnabled != false | tostring),
+            ($m | has("agents") | tostring),
+            ($m.agents | if type == "string" then [.] elif type == "array" then map(strings) else [] end
+             | join("\u001e")) ]
+        else ["", "true", "false", ""] end
+      | join("\u001f") | gsub("[\\n\\r]"; "")
+    ' --args "${manifests[@]}" 2>/dev/null)}")
+  fi
+
+  for (( i = 1; i <= $#ids; i++ )); do
+    root=$roots[i] plugin=${ids[i]%%@*} listed=0
+    files=($root/agents/**/*.md(N-.))
+    if (( $#rows == $#ids )); then
+      fields=("${(@ps:\x1f:)rows[i]}")
+      [[ -n $fields[1] ]] && plugin=$fields[1]
+      [[ $preset[i] == false && $fields[2] == false ]] && continue
+      if [[ $fields[3] == true ]]; then
+        listed=1 files=()
+        for f in "${(@ps:\x1e:)fields[4]}"; do
+          # Paths start with `./` and stay inside the plugin.
+          [[ $f == ./*.md && $f != *..* && -f $root/$f ]] && files+=($root/$f)
+        done
+      fi
+    fi
+    for f in $files; do
+      _claude_agent_frontmatter $f
+      # Claude's own fallbacks for a file without usable frontmatter.
+      name=${reply[1]:-${f:t:r}} desc=${reply[2]:-Agent from $plugin plugin}
+      if (( listed )); then
+        name=$plugin:$name
+      else
+        name=$plugin${${${f:h}#$root/agents}//\//:}:$name
+      fi
+      (( ${+seen[$name]} )) && continue
+      seen[$name]=1
+      out+=("${name//:/\\:}:$desc")
+    done
+  done
+  reply=("${out[@]}")
+}
+
+# Offer the agents `--agent` accepts, the way Claude finds them
 # (https://code.claude.com/docs/en/sub-agents):
 #   - project: every `.claude/agents/` from the working directory up to the
 #     repository root, closest first, so `claude --agent` works from a
 #     subdirectory. Outside a repository only the working directory counts.
 #   - user: `$CLAUDE_CONFIG_DIR/agents`, `~/.claude/agents` by default.
 #   - both are searched recursively, and the agent is identified by the
-#     `name` in its frontmatter, never by its path or file name.
-# Only the frontmatter is read, in zsh itself, so no process is started
-# per file. A file without usable frontmatter is skipped.
+#     `name` in its frontmatter, never by its path or file name. A file
+#     without usable frontmatter is skipped.
+#   - plugin: see `_claude_plugin_agents`. Only the scoped name is offered.
+#     Claude also takes the last part alone, but then a user or project
+#     agent of that name wins, and so does the first of two plugins.
+#   - built-in: the agents Claude registers itself. A user or project
+#     agent of the same name replaces one, so it is listed once.
 _claude_agents() {
-  setopt localoptions extendedglob
   local -a reply dirs agents
   local -A seen
-  local d f line key val name desc
-  local -i n block
+  local d f name desc
 
   _claude_project_dirs
-  dirs=(${^reply}/.claude/agents "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/agents")
+  dirs=("${reply[@]}")
 
-  for d in $dirs; do
+  for d in ${^dirs}/.claude/agents "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/agents"; do
     for f in $d/**/*.md(N-.); do
-      name="" desc="" n=0 block=0
-      while IFS= read -r line || [[ -n $line ]]; do
-        (( n++ ))
-        line=${line%$'\r'}
-        if (( n == 1 )); then
-          # A byte-order mark may precede the opening `---`.
-          line=${line#$'\xef\xbb\xbf'}
-          [[ ${line%%[[:space:]]#} == '---' ]] || break
-          continue
-        fi
-        [[ ${line%%[[:space:]]#} == '---' ]] && break
-        (( n > 200 )) && break
-        if (( block )); then
-          # First line of a `description: |` or `>` block.
-          block=0
-          if [[ $line == [[:space:]]##[^[:space:]]* ]]; then
-            desc=${${line##[[:space:]]#}%%[[:space:]]#}
-            continue
-          fi
-        fi
-        [[ $line == (name|description):* ]] || continue
-        key=${line%%:*}
-        val=${${line#*:}##[[:space:]]#}
-        if [[ $val == \"* ]]; then
-          val=${${val#\"}%%\"*}
-        elif [[ $val == \'* ]]; then
-          val=${${val#\'}%%\'*}
-        else
-          # Unquoted: drop a trailing ` # comment`, then trailing blanks.
-          [[ $val == \#* ]] && val=""
-          val=${${val%%[[:space:]]##\#*}%%[[:space:]]#}
-        fi
-        if [[ $key == name ]]; then
-          name=$val
-        elif [[ $val == [\|\>]([+-]|)([0-9]|) ]]; then
-          block=1
-        else
-          desc=$val
-        fi
-      done < $f 2>/dev/null
-
+      _claude_agent_frontmatter $f
+      name=$reply[1] desc=$reply[2]
       # `:` is reserved for plugin-scoped agents; Claude skips such a file.
       [[ -n $name && $name != *:* ]] || continue
       (( ${+seen[$name]} )) && continue
       seen[$name]=1
-      # Descriptions often carry escaped examples; keep the first line short.
-      desc=${desc%%\\n*}
-      (( ${#desc} > 80 )) && desc="${desc[1,77]}..."
       agents+=("${name}${desc:+:$desc}")
     done
+  done
+
+  _claude_plugin_agents "${dirs[@]}"
+  agents+=("${reply[@]}")
+
+  # The descriptions are from the sub-agents page.
+  for name desc in \
+    general-purpose 'Complex, multi-step tasks that need both exploration and action' \
+    statusline-setup 'Configures your status line' \
+    claude 'Catch-all with every tool available to subagents' \
+    Explore 'Fast, read-only agent for searching and analyzing codebases' \
+    Plan 'Research agent that gathers context before presenting a plan' \
+    claude-code-guide 'Answers questions about Claude Code features'; do
+    (( ${+seen[$name]} )) || agents+=("$name:$desc")
   done
 
   _describe -t agents 'agent' agents "$@"

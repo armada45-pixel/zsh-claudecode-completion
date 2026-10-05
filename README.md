@@ -77,7 +77,7 @@ claude --model <TAB>      # Show model names
 claude --output-format <TAB>  # Show output formats
 claude --setting-sources user,<TAB>  # Show the remaining setting sources
 claude --resume <TAB>     # Show recent sessions (newest first)
-claude --agent <TAB>      # Show your user and project subagents
+claude --agent <TAB>      # Show your own, plugin and built-in subagents
 ```
 
 Completions marked "needs jq" read Claude's JSON files with [`jq`](https://jqlang.org) 1.6 or newer. Without it, or with an older version, they offer nothing; everything else keeps working.
