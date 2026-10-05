@@ -305,4 +305,4 @@ The completion script must use this flat structure:
 - An action that calls `_alternative` goes in braces: `'::target:{_alternative ...}'`. `_arguments` passes compadd options to a bare action and `_alternative` prints `bad option: -J`
 - Early `return` after each case block to prevent fallthrough
 - Simple `_arguments -s` (not `-C`) for main flags
-- Simple command list: `'1:command:(cmd1 cmd2 cmd3)'`
+- Simple command list: `"1:command:($known_commands)"`, derived from the `claude_commands` array (do not write the names out again as a literal list)

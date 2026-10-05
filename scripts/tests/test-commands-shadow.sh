@@ -29,16 +29,6 @@ assert_no_zsh_errors() {
     fi
 }
 
-# Command names, read from the claude_commands array in _claude.
-names=()
-while IFS= read -r name; do
-    names+=("$name")
-done < <(sed -n "/^claude_commands=(/,/^)/s/^  '\([a-z-]*\):.*/\1/p" "$COMPLETION_FILE")
-(( ${#names[@]} > 0 )) || fail "no claude_commands array found in $COMPLETION_FILE"
-for sentinel in mcp daemon remote-control; do
-    [[ " ${names[*]} " == *" $sentinel "* ]] || fail "'$sentinel' missing from claude_commands"
-done
-
 log "case 1: a completer called from _claude sees zsh's \$commands hash"
 # Replace _files with a probe that reports what it sees. `zsh` is certainly
 # in the hash, since the test shell itself is zsh found on PATH.
@@ -50,6 +40,18 @@ assert_no_completion_errors "$output"
 assert_no_zsh_errors "$output"
 assert_not_contains "cmdhash-0-seen" "$output" "probe output (\$commands is shadowed)"
 assert_contains "cmdhash-1-seen" "$output" "probe output"
+
+# Command names, read from the claude_commands array in _claude. This comes
+# after case 1 so that a regression of the shadow is reported as such, rather
+# than as a missing array.
+names=()
+while IFS= read -r name; do
+    names+=("$name")
+done < <(sed -n "/^claude_commands=(/,/^)/s/^  '\([a-z-]*\):.*/\1/p" "$COMPLETION_FILE")
+(( ${#names[@]} > 0 )) || fail "no claude_commands array found in $COMPLETION_FILE"
+for sentinel in mcp daemon remote-control; do
+    [[ " ${names[*]} " == *" $sentinel "* ]] || fail "'$sentinel' missing from claude_commands"
+done
 
 log "case 2: 'claude <TAB>' lists each command exactly once"
 output=$(run_completion "$home" "$home" 'claude \t')
