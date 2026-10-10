@@ -5,10 +5,29 @@ All notable changes to the zsh-claudecode-completion plugin are documented here.
 ## [Unreleased]
 
 ### Added
+- Model aliases for `--model`, `--fallback-model` (comma-separated), `--advisor`, `agents --model`, `plugin eval --model` / `--judge-model` and `auto-mode critique --model`
+- Agent names for `--agent` and `agents --agent`: project and user agents, built-in agents, and agents of enabled plugins
+- Configured MCP server names for `mcp get`, `mcp remove`, `mcp login` and `mcp logout`
+- Installed plugins, marketplace plugins and marketplace names for the `plugin` subcommands
+- `--setting-sources` values (`user`, `project`, `local`) as a comma-separated list
+- `ultracode` as an `--effort` value, which the CLI accepts but does not list in `--help`
 - Hidden `self-hosted-runner` command (in the CLI since v2.1.224, absent from `claude --help`): Start a runner process that hosts Claude Code cloud sessions on your infrastructure
   - Subcommands `setup`, `doctor`, `orchestrator`, offered only as the first word, where the CLI recognizes them
   - Runner flags from `claude self-hosted-runner --help`, with values for `--log-level` (`info`, `debug`), `--host-config-snapshot` (`disk`, `memory`), `--confine-repo-settings` (`warn`, `enforce`, `off`) and the optional `[bool]` of `--trust-workspace` / `--remove-session-state`
   - `orchestrator` has its own flag set (`--hook-concurrency`, `--hook-timeout`, `--expected-spawn-seconds`, `--min-idle`, `--scm-connector-*`, `--debug-dir`)
+
+### Fixed
+- Positionals of nested subcommands (`plugin validate <TAB>`, `mcp add name <TAB>`, ...) now complete, and `plugin eval` finds `init` after eval flags and their values
+- The command list no longer shadows zsh's `$commands` hash; `known_commands` and the `1:command:` spec are derived from one `claude_commands` array
+
+## [2.1.296] - 2026-10-10
+
+No new commands, subcommands, or flags detected.
+
+## [2.1.295] - 2026-10-09
+
+No new commands, subcommands, or flags detected.
+
 ## [2.1.294] - 2026-10-08
 
 ### Added
