@@ -40,13 +40,15 @@ assert_no_completion_errors "$output"
 assert_contains "Latest Sonnet" "$output" "second fallback model"
 assert_not_contains "Latest Opus" "$output" "second fallback model"
 
-# zsh prints the separator it will insert as a bold `,` right after the
-# completed word: `haiku<ESC>[1m,`. A space there would end the list.
+# zsh prints the separator it will insert right after the completed word,
+# in bold where the terminal can do it, hence strip_ansi. A space there
+# would end the list.
 log "case: the next model is joined with a comma, not a space"
 output=$(complete 'claude --fallback-model opus,hai\t')
 assert_no_completion_errors "$output"
-assert_contains "fallback-model opus,haiku.\[1m," "$output" "completed second fallback model"
-assert_not_contains "fallback-model opus,haiku " "$output" "completed second fallback model"
+plain=$(strip_ansi "$output")
+assert_contains "fallback-model opus,haiku," "$plain" "completed second fallback model"
+assert_not_contains "fallback-model opus,haiku " "$plain" "completed second fallback model"
 
 log "case: '--advisor <TAB>' offers only the advisor models"
 output=$(complete 'claude --advisor \t')

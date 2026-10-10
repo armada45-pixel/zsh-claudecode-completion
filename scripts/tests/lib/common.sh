@@ -109,6 +109,14 @@ EXPECT_SCRIPT
     return $rc
 }
 
+# Drop CSI escape sequences (colors, bold, bracketed paste) from tty output.
+# zsh highlights the suffix it will insert after a completed word only on
+# terminals that can do bold, so tests that look at a completed word strip
+# the styling first.
+strip_ansi() {
+    sed $'s/\033\\[[0-9;?]*[A-Za-z]//g' <<< "$1"
+}
+
 # Standard sanity checks for run_completion output.
 assert_no_completion_errors() {
     local output="$1"

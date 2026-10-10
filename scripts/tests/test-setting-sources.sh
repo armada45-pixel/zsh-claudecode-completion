@@ -14,11 +14,6 @@ require_common_deps
 home=$(make_test_home)
 trap 'rm -rf "$home"' EXIT
 
-# Drop CSI escape sequences (colors, bold, bracketed paste) from tty output.
-strip_ansi() {
-    sed $'s/\033\\[[0-9;?]*[A-Za-z]//g' <<< "$1"
-}
-
 log "case 1: first value offers all three sources"
 output=$(run_completion "$home" "$home" 'claude --setting-sources \t')
 assert_no_completion_errors "$output"

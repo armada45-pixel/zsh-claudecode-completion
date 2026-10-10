@@ -88,15 +88,16 @@ for bad in no-frontmatter scoped nameless empty binary; do
     assert_not_contains "$bad" "$output" "agent list"
 done
 
-# A unique match is inserted followed by the bold space zsh will add. A
-# name that kept its trailing tab or comment would not complete this way.
+# A unique match is inserted followed by the space zsh will add (bold on
+# terminals that can do it, hence strip_ansi). A name that kept its
+# trailing tab or comment would not complete this way.
 log "case 5: a name with trailing whitespace completes exactly"
 output=$(run_completion "$home" "$proj" 'claude --agent tabb\t')
 assert_no_completion_errors "$output"
-assert_contains "agent tabbed.\[1m " "$output" "completed name"
+assert_contains "agent tabbed " "$(strip_ansi "$output")" "completed name"
 output=$(run_completion "$home" "$proj" 'claude --agent comm\t')
 assert_no_completion_errors "$output"
-assert_contains "agent commented.\[1m " "$output" "completed name"
+assert_contains "agent commented " "$(strip_ansi "$output")" "completed name"
 
 log "case 6: 'claude agents --agent <TAB>' uses the same list"
 output=$(run_completion "$home" "$proj" 'claude agents --agent \t')
