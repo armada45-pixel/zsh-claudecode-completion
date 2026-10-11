@@ -412,10 +412,14 @@ _claude_agent_frontmatter() {
 #   - installed_plugins.json names each plugin's `installPath`. The cache
 #     directory also keeps older versions, so it is not searched. An
 #     install with project or local scope counts only inside its project.
-#   - a plugin is skipped when `enabledPlugins` turns it off in the user's
-#     settings.json or the working directory's .claude/settings.json or
-#     settings.local.json (the later file wins), or when nothing sets it
-#     and its manifest says `defaultEnabled: false`.
+#   - a plugin is skipped when `enabledPlugins` turns it off, or when
+#     nothing sets it and its manifest says `defaultEnabled: false`. The
+#     files are the ones Claude reads (checked with `claude plugin list`
+#     in 2.1.296), the later one winning: the user's settings.json, the
+#     working directory's .claude/settings.json and settings.local.json,
+#     and the main repository's .claude/settings.local.json. No other
+#     parent directory counts, and neither does the repository's
+#     settings.json below its root.
 #   - the agent is `<plugin>:<subfolders of agents/>:<name>`, the name
 #     being the frontmatter `name`, or the file name without it. `<plugin>`
 #     is the manifest's `name`, the part before `@` without a manifest.
@@ -431,14 +435,34 @@ _claude_plugin_agents() {
   local installed=${CLAUDE_CODE_PLUGIN_CACHE_DIR:-$config/plugins}/installed_plugins.json
   local -a jqargs rows fields ids roots preset manifests files out
   local -A seen
-  local f row root plugin name desc text
+  local f row root plugin name desc text main="" gitdir common
   local -i i=0 listed
 
   reply=()
   [[ -f $installed && -r $installed ]] || return 1
 
+  # The main repository is the last project directory when that is a
+  # checkout. A linked worktree names its git directory in a `.git` file,
+  # and `commondir` there leads to the repository it belongs to.
+  (( $# )) && main=${@[-1]}
+  if [[ -n $main && -f $main/.git ]]; then
+    gitdir=$(<$main/.git) 2>/dev/null
+    gitdir=${${gitdir%%$'\n'*}#gitdir: }
+    [[ $gitdir == /* ]] || gitdir=$main/$gitdir
+    common=""
+    [[ -f $gitdir/commondir && -r $gitdir/commondir ]] && common=$(<$gitdir/commondir) 2>/dev/null
+    common=${common%%$'\n'*}
+    if [[ -n $common ]]; then
+      [[ $common == /* ]] || common=$gitdir/$common
+      main=${common:A:h}
+    fi
+  elif [[ ! -d $main/.git ]]; then
+    main=""
+  fi
+
   jqargs=(--rawfile installed $installed)
-  for f in $config/settings.json $1/.claude/settings.json $1/.claude/settings.local.json; do
+  for f in $config/settings.json $1/.claude/settings.json $1/.claude/settings.local.json \
+      ${main:+$main/.claude/settings.local.json}; do
     (( i++ ))
     if [[ -f $f && -r $f ]]; then
       jqargs+=(--rawfile settings$i $f)
@@ -446,12 +470,13 @@ _claude_plugin_agents() {
       jqargs+=(--arg settings$i '')
     fi
   done
+  (( i < 4 )) && jqargs+=(--arg settings4 '')
 
   # One row per usable plugin: id, install path, and whether a settings
   # file sets `enabledPlugins` for it.
   rows=("${(@f)$(command jq -n -r "${jqargs[@]}" '
     def parse: first((try fromjson catch null), null);
-    (reduce ($settings1, $settings2, $settings3 | parse | objects | .enabledPlugins | objects) as $e
+    (reduce ($settings1, $settings2, $settings3, $settings4 | parse | objects | .enabledPlugins | objects) as $e
       ({}; . + $e)) as $enabled
     | $installed | parse | objects | .plugins | objects | to_entries[]
     | .key as $id

@@ -10,6 +10,9 @@
 #   - the manifest can rename the plugin and replace the `agents/` scan
 #   - plugins turned off in `enabledPlugins`, or off by default, are skipped,
 #     and the project's settings override the user's
+#   - from a subdirectory or a linked worktree, the settings files read
+#     are the ones Claude reads: the working directory's own, plus the
+#     main repository's settings.local.json, which wins
 #   - a project-scoped install is offered only inside its project
 #   - malformed entries, a missing installPath, a broken manifest and a
 #     broken settings file do not hide the other plugins or print errors
@@ -194,5 +197,59 @@ output=$(run_completion "$home" "$home/elsewhere" 'claude --agent \t' \
 assert_clean "$output"
 assert_contains "other:alt-agent" "$output" "agent list with CLAUDE_CODE_PLUGIN_CACHE_DIR"
 assert_not_contains "alpha" "$output" "agent list with CLAUDE_CODE_PLUGIN_CACHE_DIR"
+
+# --- settings below the repository root --------------------------------------
+# What `claude plugin list` reports in 2.1.296: .claude/settings.json counts
+# only in the working directory, .claude/settings.local.json there and in
+# the main repository, and the main repository's wins.
+nest="$home/nest"
+mkdir -p "$nest/.git/worktrees/wt" "$nest/.claude" "$nest/plain" "$nest/own/.claude" \
+    "$home/wt/.claude" "$home/wt/deep"
+printf '{"enabledPlugins": {"relit@market": true, "muted@market": false}}\n' \
+    > "$nest/.claude/settings.json"
+printf '{"enabledPlugins": {"alpha@market": false, "dflt@market": true}}\n' \
+    > "$nest/.claude/settings.local.json"
+printf '{"enabledPlugins": {"muted@market": false, "relit@market": false}}\n' \
+    > "$nest/own/.claude/settings.json"
+printf '{"enabledPlugins": {"relit@market": true, "alpha@market": true}}\n' \
+    > "$nest/own/.claude/settings.local.json"
+# A linked worktree: `.git` is a file, and `commondir` leads to the repository.
+printf 'gitdir: %s\n' "$nest/.git/worktrees/wt" > "$home/wt/.git"
+printf '../..\n' > "$nest/.git/worktrees/wt/commondir"
+printf '{"enabledPlugins": {"muted@market": false, "dflt@market": false}}\n' \
+    > "$home/wt/.claude/settings.local.json"
+
+log "case 11: a subdirectory without settings of its own"
+output=$(run_completion "$home" "$nest/plain" 'claude --agent \t')
+assert_clean "$output"
+# The repository's settings.json is not read from below its root ...
+assert_contains "muted:quiet-agent" "$output" "agent list in a subdirectory"
+assert_not_contains "back-agent" "$output" "agent list in a subdirectory"
+# ... but its settings.local.json is.
+assert_contains "dflt:sleeper-agent" "$output" "agent list in a subdirectory"
+assert_not_contains "alpha:" "$output" "agent list in a subdirectory"
+
+log "case 12: a subdirectory with settings of its own"
+output=$(run_completion "$home" "$nest/own" 'claude --agent \t')
+assert_clean "$output"
+assert_not_contains "quiet-agent" "$output" "agent list with nested settings"
+# settings.local.json beats settings.json in the same directory ...
+assert_contains "relit:back-agent" "$output" "agent list with nested settings"
+# ... and the main repository's settings.local.json beats both.
+assert_not_contains "alpha:" "$output" "agent list with nested settings"
+assert_contains "dflt:sleeper-agent" "$output" "agent list with nested settings"
+
+log "case 13: a linked worktree reads the main repository's settings.local.json"
+output=$(run_completion "$home" "$home/wt" 'claude --agent \t')
+assert_clean "$output"
+assert_not_contains "quiet-agent" "$output" "agent list in a worktree"
+assert_not_contains "alpha:" "$output" "agent list in a worktree"
+assert_contains "dflt:sleeper-agent" "$output" "agent list in a worktree"
+output=$(run_completion "$home" "$home/wt/deep" 'claude --agent \t')
+assert_clean "$output"
+# Below the worktree's root only the main repository's file is left.
+assert_contains "muted:quiet-agent" "$output" "agent list below a worktree root"
+assert_not_contains "alpha:" "$output" "agent list below a worktree root"
+assert_contains "dflt:sleeper-agent" "$output" "agent list below a worktree root"
 
 pass "plugin and built-in agent completion OK"
