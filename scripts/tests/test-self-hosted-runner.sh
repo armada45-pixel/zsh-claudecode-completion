@@ -48,6 +48,7 @@ output=$(run_completion "$home" "$home" 'claude self-hosted-runner --\t')
 assert_no_zsh_errors "$output"
 for flag in --api-url --capacity --base-dir --git-ssh-rewrite --trust-workspace \
             --confine-repo-settings --host-config-snapshot --retire-at \
+            --server-auto-mode-lists \
             --kill-session-after-min --debug-token-dir; do
     assert_contains -- "$flag" "$output" "runner flag '$flag'"
 done
@@ -90,6 +91,13 @@ assert_no_zsh_errors "$output"
 assert_contains -- "--help" "$output" "setup flags"
 assert_contains -- "-h " "$output" "setup flags"
 assert_not_contains -- "--capacity" "$output" "setup flags"
+
+log "case 8b: '--server-auto-mode-lists <TAB>' lists all, no-allow and none"
+output=$(run_completion "$home" "$home" 'claude self-hosted-runner --server-auto-mode-lists \t')
+assert_no_completion_errors "$output"
+for mode in all no-allow none; do
+    assert_contains "$mode" "$output" "--server-auto-mode-lists values"
+done
 
 log "case 9: '--confine-repo-settings <TAB>' lists warn, enforce and off"
 output=$(run_completion "$home" "$home" 'claude self-hosted-runner --confine-repo-settings \t')
