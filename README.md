@@ -2,6 +2,8 @@
 
 Minimal and always up-to-date zsh completions for [Claude Code CLI](https://github.com/anthropics/claude-code) 
 
+![Tab completion for claude: commands, models, sessions, agents, MCP servers and plugins](assets/demo.gif)
+
 - **Pure tab completion only** — no aliases, no wrapper functions, no opinionated workflows.
 - **Always up-to-date within 24 hours** - scheduled github action run daily, Claude Code automatically regenerates completions when the CLI changes. No manual maintenance required.
 
@@ -112,6 +114,14 @@ This command will:
 2. Check if the completion script is outdated
 3. Regenerate `_claude` from the new `--help` output
 4. Commit the changes automatically
+
+### Re-recording the Demo
+
+The GIF at the top is recorded with [VHS](https://github.com/charmbracelet/vhs) from `assets/demo-top.tape` and `assets/demo-bottom.tape` (one per pane), using the made-up data in `assets/demo-setup.zsh`. To record it again (needs Docker):
+
+```bash
+./scripts/record-demo.sh
+```
 
 ## Troubleshooting
 
