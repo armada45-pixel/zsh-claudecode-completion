@@ -1121,6 +1121,7 @@ case $subcmd in
                 _arguments \
                   '--claudeai[Add the marketplace of this name that claude.ai hosts for you, by its listed name or its local name]' \
                   '(-h --help)'{-h,--help}'[Display help]' \
+                  '--json[Print one machine-readable result line as the last line on stdout (same exit codes)]' \
                   '--scope[Where to declare the marketplace: user (default), project, or local]:scope:(user project local)' \
                   '*--sparse[Limit checkout to specific directories via git sparse-checkout (for monorepos), e.g. --sparse .claude-plugin plugins]:path:_files -/' \
                   ':source:_files'
@@ -1128,12 +1129,14 @@ case $subcmd in
               remove|rm)
                 _arguments \
                   '(-h --help)'{-h,--help}'[Display help]' \
+                  '--json[Print one machine-readable result line as the last line on stdout (same exit codes)]' \
                   '--scope[Remove the marketplace declaration from a specific settings scope: user, project, or local. Omit to remove it from every scope]:scope:(user project local)' \
                   ':name:_claude_marketplaces'
                 ;;
               update)
                 _arguments \
                   '(-h --help)'{-h,--help}'[Display help]' \
+                  '--json[With a marketplace name: print one machine-readable result line as the last line on stdout (same exit codes)]' \
                   '::name:_claude_marketplaces'
                 ;;
               list)
@@ -1329,7 +1332,8 @@ case $subcmd in
             '--scm-connector-host[GHES hostname to forward to (port defaults to 443). Setting this enables the connector]:host:' \
             '--scm-connector-host-rewrite[e2e only — redirect the TCP connect while keeping Host/SNI as --scm-connector-host]:from=to_host\:to_port:' \
             '--scm-connector-id[ghe_configurations.id for this org (REQUIRED with --scm-connector-host)]:n:' \
-            '--scm-connector-provider[Provider slug (default: ghe)]:provider:'
+            '--scm-connector-provider[Provider slug (default: ghe)]:provider:' \
+            '--shutdown-drain-sec[On SIGTERM, stop polling but give the poll in flight and the running hooks up to <n> seconds to end (default: 0, stop them at once)]:n:'
           ;;
         setup|doctor)
           # Extra args are passed to the underlying Claude Code session.
@@ -1446,16 +1450,18 @@ case $subcmd in
   remote-control)
     _arguments \
       '--capacity[Max concurrent sessions in worktree or same-dir mode (default: 32)]:n:' \
+      '(--no-chrome)--chrome[Turn on Claude in Chrome for spawned sessions (default: off)]' \
+      '(--chrome)--no-chrome[Turn off Claude in Chrome for spawned sessions]' \
       '(-c --continue --session-id)'{-c,--continue}'[Resume the last Remote Control session in this directory]' \
       '--create-session-in-dir[Pre-create a session in the current directory when the server starts (default: on)]' \
       '--no-create-session-in-dir[Skip pre-creating a session in the current directory]' \
+      '(-d --debug)-d[Enable debug mode for this process]' \
+      '(-d --debug)--debug=-[Enable debug mode for this process, with optional category filtering (e.g. --debug=api,hooks)]::filter:' \
       '--debug-file[Write debug logs to a specific file path]:path:_files' \
       '(-h --help)'{-h,--help}'[Display help]' \
       '--name[Name for the session (shown in claude.ai/code)]:name:' \
-      '--no-sandbox[Disable sandboxing]' \
       '--permission-mode[Permission mode for spawned sessions]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
       '--remote-control-session-name-prefix[Prefix for auto-generated session names (default: hostname)]:prefix:' \
-      '--sandbox[Enable sandboxing for filesystem and network isolation]' \
       '(--session-id -c --continue)--session-id[Resume a specific Remote Control session by ID (cannot be used with spawn flags or --continue)]:id:' \
       '--spawn[Spawn mode for on-demand sessions (default: same-dir)]:mode:(same-dir worktree session)' \
       '(-v --verbose)'{-v,--verbose}'[Show detailed connection and session logs]'
@@ -1554,7 +1560,7 @@ _arguments -s \
   '(--remote-control --rc)'{--remote-control,--rc}'[Start an interactive session with Remote Control enabled (optionally named)]::name:' \
   '--remote-control-session-name-prefix[Prefix for auto-generated Remote Control session names (default: hostname)]:prefix:' \
   '--replay-user-messages[Re-emit user messages from stdin back on stdout for acknowledgment (only works with --input-format=stream-json and --output-format=stream-json)]' \
-  '--restricted[Restricted mode: removes the built-in tools that run commands or code (Bash, PowerShell, REPL and the other code-running tools) and WebFetch unless --tools names them, and ignores user, project and local settings files (managed settings and --settings still apply; add --strict-mcp-config to skip MCP servers too). Also confines the file tools to the working directories (--add-dir included), refuses bypassPermissions, and lets only a person or the configured permission handler approve writes to settings, git and tool-configuration files]' \
+  '--restricted[Restricted mode: removes the built-in tools that run commands or code (Bash, PowerShell and the other code-running tools) and WebFetch unless --tools names them, and ignores user, project and local settings files (managed settings and --settings still apply; add --strict-mcp-config to skip MCP servers too). Also confines the file tools to the working directories (--add-dir included), refuses bypassPermissions, and lets only a person or the configured permission handler approve writes to settings, git and tool-configuration files]' \
   '(-r --resume)'{-r,--resume}'[Resume a conversation by session ID, or open interactive picker with optional search term]:session:_claude_session_ids' \
   '--safe-mode[Start with all customizations disabled — useful for troubleshooting a broken configuration. Admin-managed settings still apply. Sets CLAUDE_CODE_SAFE_MODE=1]' \
   '--session-id[Use a specific session ID for the conversation (must be a valid UUID)]:uuid:' \

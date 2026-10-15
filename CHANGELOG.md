@@ -2,6 +2,19 @@
 
 All notable changes to the zsh-claudecode-completion plugin are documented here.
 
+## [2.1.300] - 2026-10-15
+
+### Added
+- New `--shutdown-drain-sec <n>` flag for `self-hosted-runner orchestrator` (added in 2.1.299): on SIGTERM, give the poll in flight and the running hooks up to n seconds to end
+- `--chrome` / `--no-chrome`, `-d` and `--debug[=<filter>]` for `remote-control`, which its `--help` lists
+- `--json` for `plugin marketplace add`, `remove` and `update`, which their `--help` lists
+
+### Changed
+- Updated description for `--restricted` (it no longer names the removed REPL tool)
+
+### Removed
+- `--sandbox` and `--no-sandbox` from `remote-control`: 2.1.300 removed them (they had no effect) and now rejects them
+
 ## [2.1.299] - 2026-10-14
 
 ### Added

@@ -56,7 +56,7 @@ Some Claude CLI commands are **hidden** — they work but are not listed in `cla
 
 For each hidden command:
 1. Run its `--help` to get flags and description
-2. Also check the official docs at `https://code.claude.com/docs/en/<command-name>.md` for any flags not shown in `--help` (e.g., `remote-control` has `--sandbox`, `--no-sandbox`, `--verbose` documented but not in `--help`)
+2. Also check the official docs at `https://code.claude.com/docs/en/<command-name>.md` for any flags not shown in `--help` (e.g., `remote-control` once had `--verbose` documented but not in `--help`). A doc-only flag can also be removed later: 2.1.300 dropped `remote-control --sandbox` / `--no-sandbox`, so probe each one before keeping it
 3. Add a `'name:description'` entry to the `claude_commands` array and a branch to the `case` statement, same as visible commands. Do not rename the array to `commands`: that is zsh's special hash of executables, and a local of that name hides it from every completer `_claude` calls
 4. Do not edit `known_commands` (used by the subcommand-position scanner) or the `'1:command:(...)'` spec at the bottom by hand; both are derived from `claude_commands`
 5. Every entry in `claude_commands` needs a `case` branch: the scanner detects each listed name, and a detected command without a branch falls through to the top-level flags and command list
