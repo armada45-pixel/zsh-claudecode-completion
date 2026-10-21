@@ -2,6 +2,11 @@
 
 All notable changes to the zsh-claudecode-completion plugin are documented here.
 
+## [2.1.306] - 2026-10-21
+
+### Added
+- New `--profile <name>` flag for `plugin validate` (completes `directory`): also fail when the plugin directory would refuse a submission of the plugin
+
 ## [2.1.303] - 2026-10-19
 
 ### Changed

@@ -1034,6 +1034,7 @@ case $subcmd in
           _arguments \
             '(-h --help)'{-h,--help}'[Display help]' \
             '--json[Output the validation report as JSON (same exit codes)]' \
+            '--profile[Also exit 1 when the plugin directory would refuse a submission of the plugin on a check this command runs]:profile:(directory)' \
             '--strict[Treat warnings as errors (exit 1). Use in CI to fail on unrecognized fields, missing metadata, and other issues that the runtime tolerates]' \
             ':path:_files'
           ;;
