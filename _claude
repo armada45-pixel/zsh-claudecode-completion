@@ -757,8 +757,8 @@ claude_commands=(
   'remote-control:Connect your local environment to claude.ai/code'
   'stop:Stop a background session'
   'ultrareview:Run a cloud-hosted multi-agent code review of the current branch (or a PR number / base branch) and print the findings'
-  'update:Check for updates and install if available'
-  'upgrade:Check for updates and install if available'
+  'update:Check for updates and install if available; package-manager installs update through the package manager'
+  'upgrade:Check for updates and install if available; package-manager installs update through the package manager'
 )
 
 local -a auth_commands
@@ -1034,6 +1034,7 @@ case $subcmd in
           _arguments \
             '(-h --help)'{-h,--help}'[Display help]' \
             '--json[Output the validation report as JSON (same exit codes)]' \
+            '--profile[Also exit 1 when the plugin directory would refuse a submission of the plugin on a check this command runs]:profile:(directory)' \
             '--strict[Treat warnings as errors (exit 1). Use in CI to fail on unrecognized fields, missing metadata, and other issues that the runtime tolerates]' \
             ':path:_files'
           ;;
@@ -1317,6 +1318,7 @@ case $subcmd in
       case $subcmd2 in
         orchestrator)
           _arguments \
+            '--agent-proxy-url[Agent proxy for the runners the spawn-runner hook starts. Passed to the hook as SELF_HOSTED_RUNNER_AGENT_PROXY_URL]:url:' \
             '--api-url[API base URL (default: https://api.anthropic.com)]:url:' \
             '--debug-dir[DEV ONLY — writes each work-order JWT + decoded JSON + hook stderr to <dir>/<jti>.{jwt,json,stderr}]:path:_files -/' \
             '--environment-secret-file[Path to environment secret file (or set SELF_HOSTED_RUNNER_ENVIRONMENT_SECRET)]:path:_files' \
@@ -1352,14 +1354,17 @@ case $subcmd in
       _describe 'self-hosted-runner command' self_hosted_runner_commands
     else
       _arguments \
+        '--agent-proxy-url[Route every session this runner runs through the agent proxy at <url> (https:// only, no user name or password)]:url:' \
         '--api-url[API base URL (default: https://api.anthropic.com)]:url:' \
         '--base-dir[Base directory for repo checkouts (default: /workspace; required on Windows, which has no default)]:path:_files -/' \
         '--capacity[Max concurrent sessions (default: 1)]:n:' \
+        '--checkout-hook-timeout-min[Wall-clock budget for each run of the checkout lifecycle hook. Default: 30. 0 disables. Max: 10080]:n:' \
         '--client-label[Observability label sent at registration (default: hostname)]:label:' \
         '--configure-git[Set global git identity to Claude <noreply@anthropic.com> and enable commit signing via Anthropic'\''s signing service, matching 1P sessions]' \
         '--confine-repo-settings[Repo-committed-settings confine guard mode: warn (default), enforce or off]:mode:(warn enforce off)' \
         '--debug-token-dir[DEBUG ONLY — writes live tokens to disk. Do not use in production]:path:_files -/' \
         '--defer-shutdown-max-min[On the first SIGTERM/SIGINT, stop taking new work and finish shutting down M minutes later instead of draining]:m:' \
+        '--diff-finds-nested-repository[Let the web session'\''s Changes pane show the changes in a repository cloned into a sub-folder of a session'\''s working folder. Requires --capacity 1. Default: false]::bool:(true false)' \
         '--drain-grace-sec[Keep the runner warm and re-poll the locked account'\''s queue for that many seconds before exiting (default: 0)]:n:' \
         '--drain-marker-file[Marker file a host writes to announce a graceful drain before sending SIGTERM (telemetry only)]:path:_files' \
         '--drain-wait-sec[On SIGTERM/SIGINT, wait up to N seconds for each session'\''s in-flight turn and running background tasks to finish]:n:' \
@@ -1517,10 +1522,10 @@ _arguments -s \
   '(-c --continue)'{-c,--continue}'[Continue the most recent conversation in the current directory]' \
   '*--dangerously-load-development-channels[Bypass the channel plugin allowlist for local testing]:server:' \
   '--dangerously-skip-permissions[Bypass all permission checks. Recommended only for sandboxes with no internet access]' \
-  '(-d --debug)'{-d,--debug}'[Enable debug mode with optional category filtering (e.g., "api,hooks" or "!1p,!file")]:filter:' \
+  '(-d --debug)'{-d,--debug}'[Enable debug mode with optional category filtering (e.g., --debug=hooks,mcp or --debug='\''!hooks,!mcp'\'')]:filter:' \
   '--debug-file[Write debug logs to a specific file path (implicitly enables debug mode)]:path:_files' \
   '--desktop[Open in the Claude Desktop app instead of the terminal (with --continue or --resume <id> to pick the session)]' \
-  '--disable-slash-commands[Disable all skills]' \
+  '--disable-slash-commands[Disable all skills and commands]' \
   '*--disallowedTools[Comma or space-separated list of tool names to deny (e.g. "Bash(git:*) Edit")]:tools:' \
   '*--disallowed-tools[Comma or space-separated list of tool names to deny (e.g. "Bash(git:*) Edit")]:tools:' \
   '--effort[Effort level for the current session (low, medium, high, xhigh, max)]:level:(low medium high xhigh max ultracode)' \
@@ -1539,7 +1544,7 @@ _arguments -s \
   '--init[Run Setup hooks with the init matcher before starting the session]' \
   '--init-only[Run Setup hooks with the init matcher, then exit]' \
   '--input-format[Input format (only works with --print): "text" (default), or "stream-json" (realtime streaming input)]:format:(text stream-json)' \
-  '--json-schema[JSON Schema for structured output validation. Example: {"type":"object","properties":{"name":{"type":"string"}},"required":["name"\]\}]:schema:' \
+  '--json-schema[JSON Schema for structured output validation (only works with --print). Example: {"type":"object","properties":{"name":{"type":"string"}},"required":["name"\]\}]:schema:' \
   '--maintenance[Run Setup hooks with the maintenance matcher, then continue]' \
   '--max-budget-usd[Maximum dollar amount to spend on API calls (only works with --print)]:amount:' \
   '--max-turns[Limit the number of agentic turns (only works with --print)]:turns:' \
@@ -1561,7 +1566,7 @@ _arguments -s \
   '--remote-control-session-name-prefix[Prefix for auto-generated Remote Control session names (default: hostname)]:prefix:' \
   '--replay-user-messages[Re-emit user messages from stdin back on stdout for acknowledgment (only works with --input-format=stream-json and --output-format=stream-json)]' \
   '--restricted[Restricted mode: removes the built-in tools that run commands or code (Bash, PowerShell and the other code-running tools) and WebFetch unless --tools names them, and ignores user, project and local settings files (managed settings and --settings still apply; add --strict-mcp-config to skip MCP servers too). Also confines the file tools to the working directories (--add-dir included), refuses bypassPermissions, and lets only a person or the configured permission handler approve writes to settings, git and tool-configuration files]' \
-  '(-r --resume)'{-r,--resume}'[Resume a conversation by session ID, or open interactive picker with optional search term]:session:_claude_session_ids' \
+  '(-r --resume)'{-r,--resume}'[Resume a conversation by session ID or name, or open interactive picker with optional search term]:session:_claude_session_ids' \
   '--safe-mode[Start with all customizations disabled — useful for troubleshooting a broken configuration. Admin-managed settings still apply. Sets CLAUDE_CODE_SAFE_MODE=1]' \
   '--session-id[Use a specific session ID for the conversation (must be a valid UUID)]:uuid:' \
   '--setting-sources[Comma-separated list of setting sources to load (user, project, local)]:sources:_values -s , source user project local' \
@@ -1573,7 +1578,7 @@ _arguments -s \
   '--teammate-mode[Set agent team display mode]:mode:(auto tmux iterm2 in-process)' \
   '--teleport[Resume a cloud session in the local terminal, or open an interactive picker with optional session ID]::session-id:' \
   '--tmux[Create a tmux session for the worktree (requires --worktree). Uses iTerm2 native panes when available; use --tmux=classic for traditional tmux]::style:(classic)' \
-  '*--tools[Specify the list of available tools from the built-in set. Use "" to disable all tools, "default" to use all tools, or specify tool names (e.g. "Bash,Edit,Read")]:tools:' \
+  '*--tools[Specify the list of available tools from the built-in set. Use "" to disable all tools, "default" to use the default set, or specify tool names (e.g. "Bash,Edit,Read")]:tools:' \
   '--verbose[Override verbose mode setting from config]' \
   '(-v --version)'{-v,--version}'[Output the version number]' \
   '(-w --worktree)'{-w,--worktree}'[Create a new git worktree for this session (optionally specify a name)]::name:' \

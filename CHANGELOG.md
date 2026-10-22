@@ -2,6 +2,20 @@
 
 All notable changes to the zsh-claudecode-completion plugin are documented here.
 
+## [2.1.308] - 2026-10-22
+
+### Added
+- New `--agent-proxy-url <url>`, `--checkout-hook-timeout-min <n>` and `--diff-finds-nested-repository [bool]` flags for `self-hosted-runner` (added in 2.1.307)
+- New `--agent-proxy-url <url>` flag for `self-hosted-runner orchestrator` (added in 2.1.307)
+
+### Changed
+- Updated descriptions to match the 2.1.304 `--help` fixes: `--debug`, `--disable-slash-commands` ("skills and commands"), `--json-schema` (only works with `--print`), `--resume` (session ID or name), `--tools`, and `update` / `upgrade`
+
+## [2.1.306] - 2026-10-21
+
+### Added
+- New `--profile <name>` flag for `plugin validate` (completes `directory`): also fail when the plugin directory would refuse a submission of the plugin
+
 ## [2.1.303] - 2026-10-19
 
 ### Changed
