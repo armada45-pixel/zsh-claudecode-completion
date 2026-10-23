@@ -1390,7 +1390,7 @@ case $subcmd in
         '--retire-at[Retire the runner at the given wall-clock time (absolute Unix timestamp, in seconds)]:epoch-seconds:' \
         '--server-auto-mode-lists[Which of the server'\''s auto mode classifier lists a session may receive in its launcher settings: all, no-allow (default) or none]:mode:(all no-allow none)' \
         '--session-stop-grace-sec[How long to wait for the Claude process to exit cleanly after a session ends, before force-killing it. Default: 5]:n:' \
-        '--startup-timeout-min[Release a session slot if the child has not completed initialization N min after spawn. Default: 15. 0 disables]:n:' \
+        '--startup-timeout-min[Release a session slot if the child has not finished starting up N min after spawn. Default: 15. 0 disables]:n:' \
         '--trust-workspace[Seed persisted trust for each session'\''s repo paths so repo-level .claude/settings.json grants are honored by the child. Default: true]::bool:(true false)' \
         '--use-anthropic-git-proxy[Opt this runner into Anthropic-managed git. WARNING: deletes and replaces the HOME-level git config of the account running the runner]'
     fi
@@ -1485,6 +1485,7 @@ case $subcmd in
       '(--no-post --post)--no-post[Do not post the findings to the PR (the default; accepted for parity with the /ultrareview and /code-review ultra flags)]' \
       '(--no-post --post)--post[Post the finished review'\''s findings to the PR as you (PR targets only; one plain comment, not a review)]' \
       '--timeout[Maximum minutes to wait for the review to finish (default: 45)]:minutes:' \
+      '--trust-workspace[Trust the current folder for this run only, without asking (for scripts and CI). Takes no value: put a PR number or base branch before it]' \
       '::target:'
     return
     ;;
