@@ -2,6 +2,14 @@
 
 All notable changes to the zsh-claudecode-completion plugin are documented here.
 
+## [2.1.309] - 2026-10-23
+
+### Added
+- New `--trust-workspace` flag for `ultrareview`: trust the current folder for this run only, without asking (2.1.309 makes `ultrareview` require workspace trust)
+
+### Changed
+- Updated description for `self-hosted-runner --startup-timeout-min` ("not finished starting up")
+
 ## [2.1.308] - 2026-10-22
 
 ### Added
