@@ -2,6 +2,14 @@
 
 All notable changes to the zsh-claudecode-completion plugin are documented here.
 
+## [2.1.312] - 2026-10-28
+
+### Added
+- New `--hold-idle-file <path>` and `--max-hold-min <n>` flags for `self-hosted-runner` (added in 2.1.311): keep an idle session from being released while a host-maintained file stays fresh
+
+### Changed
+- Updated description for `purge` ("a project's Claude Code data ... from this computer only")
+
 ## [2.1.309] - 2026-10-23
 
 ### Added
